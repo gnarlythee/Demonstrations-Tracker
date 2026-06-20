@@ -1,4 +1,7 @@
 {
-    "events": [],
-    "updates": []
+  "events": [],
+  "updates": [],
+  "members": [
+    { "service_number": "120595", "name": "CPL Morris Njoroge", "role": "admin" }
+  ]
 }
