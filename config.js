@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 const AIRTABLE_BASE = "appP9QT33Umhfxm8y";
-const AIRTABLE_TOKEN = "pattnM5DzDIXR7IoO.8cdb605d2a9945131a9590d4f2877a5e1ce2fa29a04ad977b134859ca28321c2";
+const AIRTABLE_TOKEN = "pat4saKSzAH5syMu7";
 const TABLE_EVENTS = "Events";
 const TABLE_UPDATES = "Updates";
 
