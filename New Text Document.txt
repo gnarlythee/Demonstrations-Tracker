@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KGM - Tactical Command Center</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --accent-blue: #1976d2;
+            --accent-red: #e74c3c;
+            --accent-green: #27ae60;
+            --border-color: #333;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 15px; background: var(--bg-color); color: var(--text-main); }
+        h2 { margin-top: 0; border-bottom: 2px solid var(--accent-blue); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Analytics Dashboard */
+        .dashboard { display: flex; gap: 15px; margin-bottom: 15px; }
+        .stat-card { flex: 1; background: var(--panel-bg); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color); }
+        .stat-card h3 { margin: 0; font-size: 24px; color: var(--accent-blue); }
+        .stat-card span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; }
+
+        #map { height: 50vh; width: 100%; border-radius: 8px; border: 1px solid var(--border-color); z-index: 1;}
+        
+        .controls, .panel { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
+        
+        select, input, button { padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: #2a2a2a; color: var(--text-main); }
+        button { background: var(--accent-blue); color: #fff; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); }
+        
+        .btn-report { background: var(--accent-green); }
+        .btn-danger { background: var(--accent-red); }
+        
+        #events-list { margin-top: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+        .event-card { background: var(--panel-bg); padding: 12px; border-radius: 6px; border-left: 4px solid var(--accent-red); border: 1px solid var(--border-color); }
+        .event-card.closed { border-left-color: #555; opacity: 0.6; }
+        .event-card h4 { margin: 0 0 5px 0; }
+        .event-meta { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <h2>
+        <span>🚔 KGM - Tactical Command</span>
+        <button class="btn-report" onclick="generateCSVReport()">📊 Export Operations Report</button>
+    </h2>
+
+    <div class="dashboard">
+        <div class="stat-card">
+            <h3 id="stat-active">0</h3>
+            <span>Active Incidents</span>
+        </div>
+        <div class="stat-card">
+            <h3 id="stat-demos">0</h3>
+            <span>Demonstrations</span>
+        </div>
+        <div class="stat-card">
+            <h3 id="stat-closed">0</h3>
+            <span>Resolved</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <label>Operator ID: <input type="text" id="memberName" placeholder="e.g. CMD-01"></label>
+        <button onclick="toggleMap()">🗺️ Toggle Map View</button>
+        <button onclick="toggleHeatmap()">🔥 Threat Heatmap</button>
+        <button class="btn-danger" onclick="clearAllClosed()">🗑️ Purge Resolved</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="panel">
+        <select id="locationSelect">
+            <option value="">Select Command Zone</option>
+            <option value="0">Nairobi Central Police</option>
+            <option value="1">Gigiri Police Station</option>
+            <option value="2">Kasarani Police Station</option>
+            <option value="3">Buruburu Police Station</option>
+        </select>
+        
+        <select id="eventType">
+            <option value="Demonstration">Demonstration</option>
+            <option value="Traffic Incident">Traffic Incident</option>
+        </select>
+
+        <label>Duration (Hrs): <input type="number" id="duration" value="2" min="0.5" step="0.5" style="width:60px;"></label>
+        <button onclick="reportEvent()">➕ Dispatch Unit</button>
+    </div>
+
+    <div id="events-list"><em>Awaiting telemetry data...</em></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Leaflet/Leaflet.heat@master/dist/leaflet-heat.js"></script>
+    <script>
+        // Airtable Config
+        const AIRTABLE_BASE = "appP9QT33Umhfxm8y";
+        const AIRTABLE_TOKEN = "pattnM5DzDIXR7IoO.8cdb605d2a9945131a9590d4f2877a5e1ce2fa29a04ad977b134859ca28321c2";
+        const TABLE_EVENTS = "Events";
+
+        const stations = [
+            { name: "Nairobi Central Police", lat: -1.2833, lng: 36.8167 },
+            { name: "Gigiri Police Station", lat: -1.2333, lng: 36.8000 },
+            { name: "Kasarani Police Station", lat: -1.2167, lng: 36.9167 },
+            { name: "Buruburu Police Station", lat: -1.3000, lng: 36.9167 }
+        ];
+
+        // Dark Mode Map Setup
+        const map = L.map('map').setView([-1.286389, 36.817223], 12);
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' }).addTo(map);
+        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+        let currentLayer = 'dark';
+        
+        function toggleMap() {
+            if (currentLayer === 'dark') { map.removeLayer(darkLayer); satLayer.addTo(map); currentLayer = 'sat'; } 
+            else { map.removeLayer(satLayer); darkLayer.addTo(map); currentLayer = 'dark'; }
+        }
+
+        let events = [];
+        let eventMarkers = [];
+        let heatLayer = null;
+
+        async function fetchEvents() {
+            try {
+                const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${TABLE_EVENTS}`, {
+                    headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }
+                });
+                const data = await res.json();
+                events = data.records.map(r => ({
+                    id: r.id, name: r.fields.name, lat: r.fields.lat, lng: r.fields.lng,
+                    type: r.fields.type, start: r.fields.start, estimated_end: r.fields.estimated_end,
+                    closed_at: r.fields.closed_at
+                }));
+                updateDashboard();
+                renderMapMarkers();
+                renderList();
+            } catch (e) { console.error("Telemetry Error", e); }
+        }
+
+        function updateDashboard() {
+            const active = events.filter(e => !e.closed_at);
+            document.getElementById('stat-active').innerText = active.length;
+            document.getElementById('stat-demos').innerText = active.filter(e => e.type === 'Demonstration').length;
+            document.getElementById('stat-closed').innerText = events.filter(e => e.closed_at).length;
+        }
+
+        function renderMapMarkers() {
+            eventMarkers.forEach(m => map.removeLayer(m));
+            eventMarkers = [];
+            events.forEach(e => {
+                const color = e.closed_at ? '#555' : (e.type === 'Demonstration' ? '#e74c3c' : '#f39c12');
+                if (e.lat && e.lng) {
+                    const marker = L.circleMarker([e.lat, e.lng], { radius: 8, color, fillColor: color, fillOpacity: 0.8 }).addTo(map);
+                    marker.bindPopup(`<b>${e.name}</b><br>${e.type}<br>${e.closed_at ? 'Resolved' : 'Active'}`);
+                    eventMarkers.push(marker);
+                }
+            });
+        }
+
+        function renderList() {
+            const div = document.getElementById('events-list');
+            div.innerHTML = '';
+            events.forEach(e => {
+                const isActive = !e.closed_at;
+                div.innerHTML += `
+                    <div class="event-card ${isActive ? '' : 'closed'}" style="border-left-color: ${isActive ? '#e74c3c' : '#555'}">
+                        <h4>${e.name}</h4>
+                        <div class="event-meta">Type: ${e.type} | Status: ${isActive ? '🟢 Active' : '⚪ Resolved'}</div>
+                        ${isActive ? `<button onclick="closeEvent('${e.id}')" style="font-size:12px; padding:4px 8px;">Mark Resolved</button>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        async function postEvent(data) {
+            await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${TABLE_EVENTS}`, {
+                method: 'POST', headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: data })
+            });
+            fetchEvents();
+        }
+
+        async function reportEvent() {
+            const sel = document.getElementById('locationSelect').value;
+            if (!sel) return alert("Select Command Zone");
+            const loc = stations[parseInt(sel)];
+            const type = document.getElementById('eventType').value;
+            const hours = parseFloat(document.getElementById('duration').value);
+            
+            await postEvent({
+                name: loc.name, lat: loc.lat, lng: loc.lng, type,
+                start: new Date().toISOString(), estimated_end: new Date(Date.now() + hours * 3600000).toISOString()
+            });
+        }
+
+        async function closeEvent(id) {
+            await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${TABLE_EVENTS}/${id}`, {
+                method: 'PATCH', headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: { closed_at: new Date().toISOString() } })
+            });
+            fetchEvents();
+        }
+
+        // --- EXPORT REPORT FEATURE ---
+        function generateCSVReport() {
+            if(events.length === 0) return alert("No operational data to export.");
+            
+            const headers = "ID,Location Name,Latitude,Longitude,Event Type,Start Time,Estimated End,Closed At\n";
+            const rows = events.map(e => 
+                `"${e.id}","${e.name}",${e.lat},${e.lng},"${e.type}","${e.start}","${e.estimated_end}","${e.closed_at || ''}"`
+            ).join("\n");
+            
+            const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `KGM_Operations_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        setInterval(fetchEvents, 5000);
+        fetchEvents();
+    </script>
+</body>
+</html>

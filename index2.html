@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAU - Executive Command Dashboard</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    
+    <style>
+        :root {
+            --bg-dark: #0f1115; --panel-bg: #1a1d24; --text-light: #e2e8f0; --text-muted: #94a3b8;
+            --border-color: #2d3748; --accent-blue: #3b82f6; --danger: #ef4444; --warning: #f59e0b;
+            --safe: #10b981; --greyed: #475569;
+        }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; background: var(--bg-dark); color: var(--text-light); height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Executive Header */
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); z-index: 10; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; }
+        
+        .header-controls { display: flex; gap: 15px; align-items: center; }
+        
+        /* Map View Toggle Buttons */
+        .view-toggles { display: flex; gap: 5px; background: #000; padding: 4px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .view-toggles button { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 10px; font-size: 12px; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .view-toggles button:hover { color: #fff; }
+        .view-toggles button.active { background: var(--accent-blue); color: #fff; }
+
+        .header-badges { display: flex; gap: 10px; margin-left: 15px; border-left: 1px solid var(--border-color); padding-left: 15px; }
+        .badge { padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #000; border: 1px solid var(--border-color); }
+        
+        /* Layout */
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        #map { flex: 1; height: 100%; z-index: 1; }
+        
+        /* Side Panel */
+        .side-panel { width: 380px; background: var(--panel-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; overflow-y: auto; }
+        .panel-header { padding: 15px; border-bottom: 1px solid var(--border-color); font-weight: bold; background: #14161b; }
+        
+        /* Intelligence Form */
+        .intel-form { padding: 15px; display: none; flex-direction: column; gap: 12px; }
+        .intel-form.active { display: flex; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row > div { flex: 1; }
+        label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+        input, select, textarea { width: 100%; padding: 8px 10px; background: #0b0c0f; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 13px; box-sizing: border-box; }
+        input[type="file"] { padding: 5px; }
+        
+        /* Buttons */
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; width: 100%; text-align: center; }
+        .btn-blue { background: var(--accent-blue); color: #fff; }
+        .btn-blue:hover { background: #2563eb; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        
+        /* Map Popups (Executive Styling) */
+        .leaflet-popup-content-wrapper { background: var(--panel-bg); color: var(--text-light); border: 1px solid var(--border-color); border-radius: 8px; }
+        .leaflet-popup-tip { background: var(--panel-bg); }
+        .exec-popup { min-width: 280px; }
+        .exec-popup h3 { margin: 0 0 8px 0; font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        .intel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; font-size: 12px; }
+        .intel-box { background: #0b0c0f; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); }
+        .intel-box span { display: block; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
+        .intel-box strong { font-size: 14px; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-bottom: 10px; }
+        
+        /* Utility */
+        .hidden { display: none !important; }
+        .helper-text { padding: 15px; font-size: 13px; color: var(--text-muted); text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🛡️ IAU | Executive Command</h1>
+        
+        <div class="header-controls">
+            <div class="view-toggles">
+                <button id="btn-dark" class="active" onclick="setMapLayer('dark')">🌙 Dark Theme</button>
+                <button id="btn-light" onclick="setMapLayer('light')">☀️ Light Theme</button>
+                <button id="btn-sat" onclick="setMapLayer('sat')">🛰️ Satellite</button>
+            </div>
+            
+            <div class="header-badges">
+                <div class="badge" style="color: var(--danger);">🔴 <span id="stat-high">0</span> High Intensity</div>
+                <div class="badge" style="color: var(--warning);">🟠 <span id="stat-med">0</span> Medium</div>
+                <div class="badge" style="color: var(--greyed);">⚪ <span id="stat-closed">0</span> Resolved</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div id="map"></div>
+        
+        <div class="side-panel">
+            <div class="panel-header" id="panel-title">Operations Log</div>
+            
+            <div id="helper-msg" class="helper-text">
+                Use the drawing tools on the map (top left) to outline a demonstration zone or route.
+            </div>
+
+            <div class="intel-form" id="intel-entry-form">
+                <h3 style="margin: 0; color: var(--accent-blue); font-size: 15px;">New Intelligence Report</h3>
+                
+                <div class="form-group">
+                    <label>Location / Zone Name</label>
+                    <input type="text" id="ev-name" placeholder="e.g., Parliament Road Axis">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Threat Intensity</label>
+                        <select id="ev-intensity">
+                            <option value="High">🔴 High (Violent/Destructive)</option>
+                            <option value="Medium">🟠 Medium (Rowdy/Tense)</option>
+                            <option value="Low">🟢 Low (Peaceful/Gathering)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group"><label>Est. Demonstrators</label><input type="number" id="ev-demos" placeholder="0"></div>
+                    <div class="form-group"><label>Est. Criminals</label><input type="number" id="ev-crims" placeholder="0"></div>
+                    <div class="form-group"><label>Watchers</label><input type="number" id="ev-watch" placeholder="0"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Damages Done</label>
+                    <textarea id="ev-damages" rows="2" placeholder="Describe property destruction..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Business / Traffic Impact</label>
+                    <textarea id="ev-impact" rows="2" placeholder="e.g., Shops closed, roads blocked..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Upload Ground Media (Photos/Videos)</label>
+                    <input type="file" id="ev-media" accept="image/*,video/*" multiple>
+                    <small style="color: var(--text-muted); font-size: 10px;">*Media files are securely logged to evidence servers.</small>
+                </div>
+
+                <button class="btn btn-blue" style="margin-top: 10px;" onclick="submitIntelReport()">Transmit to Command</button>
+                <button class="btn" style="background: transparent; border: 1px solid var(--border-color); color: white;" onclick="cancelDraft()">Cancel</button>
+            </div>
+            
+            <div id="events-list" style="padding: 15px;"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    
+    <script>
+        const AIRTABLE_BASE = "appP9QT33Umhfxm8y"; // Replace if necessary
+        const AIRTABLE_TOKEN = "pattnM5DzDIXR7IoO.8cdb605d2a9945131a9590d4f2877a5e1ce2fa29a04ad977b134859ca28321c2";
+        const TABLE_EVENTS = "Events";
+
+        // Map & Layer Setup
+        const map = L.map('map').setView([-1.286389, 36.817223], 13);
+        
+        const layers = {
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' }),
+            light: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' }),
+            sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' })
+        };
+
+        let currentLayerId = 'dark';
+        layers['dark'].addTo(map);
+
+        // Map Toggle Function
+        function setMapLayer(layerId) {
+            map.removeLayer(layers[currentLayerId]);
+            layers[layerId].addTo(map);
+            currentLayerId = layerId;
+
+            // Update button styles
+            document.getElementById('btn-dark').classList.remove('active');
+            document.getElementById('btn-light').classList.remove('active');
+            document.getElementById('btn-sat').classList.remove('active');
+            document.getElementById('btn-' + layerId).classList.add('active');
+        }
+
+        // Drawing Tools Integration
+        const drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        const drawControl = new L.Control.Draw({
+            edit: { featureGroup: drawnItems },
+            draw: {
+                polygon: { allowIntersection: false, shapeOptions: { color: '#3b82f6', weight: 3 } },
+                polyline: { shapeOptions: { color: '#f59e0b', weight: 4 } }, // For routes/stretches
+                rectangle: false, circle: false, marker: false, circlemarker: false
+            }
+        });
+        map.addControl(drawControl);
+
+        let currentDraftGeoJSON = null;
+        let events = [];
+        let eventLayers = [];
+
+        // When a commander finishes drawing a zone/stretch
+        map.on(L.Draw.Event.CREATED, function (event) {
+            const layer = event.layer;
+            currentDraftGeoJSON = layer.toGeoJSON();
+            drawnItems.addLayer(layer);
+            
+            // Switch side panel to intel form
+            document.getElementById('helper-msg').classList.add('hidden');
+            document.getElementById('intel-entry-form').classList.add('active');
+            document.getElementById('panel-title').innerText = "Submit Intelligence";
+        });
+
+        function cancelDraft() {
+            drawnItems.clearLayers();
+            currentDraftGeoJSON = null;
+            document.getElementById('intel-entry-form').classList.remove('active');
+            document.getElementById('helper-msg').classList.remove('hidden');
+            document.getElementById('panel-title').innerText = "Operations Log";
+            renderList();
+        }
+
+        async function submitIntelReport() {
+            if (!currentDraftGeoJSON) return alert("Please draw a zone on the map first.");
+            
+            const payload = {
+                name: document.getElementById('ev-name').value || "Unnamed Axis",
+                type: "Demonstration",
+                intensity: document.getElementById('ev-intensity').value,
+                demonstrators: parseInt(document.getElementById('ev-demos').value) || 0,
+                criminals: parseInt(document.getElementById('ev-crims').value) || 0,
+                watchers: parseInt(document.getElementById('ev-watch').value) || 0,
+                damages: document.getElementById('ev-damages').value || "None reported.",
+                business_impact: document.getElementById('ev-impact').value || "None reported.",
+                start: new Date().toISOString(), // Automatically captures exact ground start time
+                geometry: JSON.stringify(currentDraftGeoJSON.geometry)
+            };
+
+            document.getElementById('intel-entry-form').innerHTML = "<h3 style='text-align:center; color:var(--safe);'>Transmitting...</h3>";
+
+            await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${TABLE_EVENTS}`, {
+                method: 'POST', headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: payload })
+            });
+
+            // Reset UI
+            setTimeout(() => {
+                location.reload(); // Quick reset to clear inputs and refetch
+            }, 1000);
+        }
+
+        // Fetch & Render Logic
+        async function fetchEvents() {
+            try {
+                const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${TABLE_EVENTS}?sort[0][field]=start&sort[0][direction]=desc`, {
+                    headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }
+                });
+                const data = await res.json();
+                events = data.records.map(r => ({ id: r.id, ...r.fields }));
+                updateBadges();
+                renderMapZones();
+                renderList();
+            } catch (e) { console.error("Sync Error", e); }
+        }
+
+        function getColorByIntensity(intensity, isClosed) {
+            if (isClosed) return 'var(--greyed)';
+            if (intensity === 'High') return 'var(--danger)';
+            if (intensity === 'Medium') return 'var(--warning)';
+            return 'var(--safe)'; // Low
+        }
+
+        function renderMapZones() {
+            eventLayers.forEach(l => map.removeLayer(l));
+            eventLayers = [];
+
+            events.forEach(e => {
+                if (!e.geometry) return;
+                try {
+                    const geo = JSON.parse(e.geometry);
+                    const isClosed = !!e.closed_at;
+                    const hexColor = isClosed ? '#475569' : (e.intensity === 'High' ? '#ef4444' : (e.intensity === 'Medium' ? '#f59e0b' : '#10b981'));
+                    
+                    const layer = L.geoJSON(geo, {
+                        style: { color: hexColor, weight: e.type === 'Route' ? 5 : 2, fillColor: hexColor, fillOpacity: 0.35 }
+                    }).addTo(map);
+
+                    // Executive Popup Construction
+                    const statusText = isClosed ? "⚪ RESOLVED (Inactive)" : `🟢 ACTIVE - ${e.intensity} THREAT`;
+                    const startTime = new Date(e.start).toLocaleString();
+                    const endTimeText = isClosed ? `<br><b>Ended:</b> ${new Date(e.closed_at).toLocaleString()}` : '';
+                    
+                    const popupHTML = `
+                        <div class="exec-popup">
+                            <div class="status-badge" style="background:${hexColor}; color:${isClosed ? '#fff' : '#000'}">${statusText}</div>
+                            <h3>${e.name}</h3>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;"><b>Commenced:</b> ${startTime} ${endTimeText}</div>
+                            
+                            <div class="intel-grid">
+                                <div class="intel-box"><span>Demonstrators</span><strong>${e.demonstrators || 0}</strong></div>
+                                <div class="intel-box"><span>Criminals</span><strong style="color:var(--danger);">${e.criminals || 0}</strong></div>
+                            </div>
+                            
+                            <div style="margin-top: 10px; font-size: 12px;">
+                                <b>Damages:</b> <span style="color: var(--text-muted);">${e.damages || 'N/A'}</span><br><br>
+                                <b>Impact:</b> <span style="color: var(--text-muted);">${e.business_impact || 'N/A'}</span>
+                            </div>
+                            
+                            ${!isClosed ? `<button class="btn btn-danger" style="margin-top:15px; padding:6px;" onclick="resolveEvent('${e.id}')">Mark as Resolved (Stand Down)</button>` : ''}
+                        </div>
+                    `;
+                    
+                    layer.bindPopup(popupHTML);
+                    eventLayers.push(layer);
+                } catch (err) { console.error("GeoJSON parse error", err); }
+            });
+        }
+
+        function renderList() {
+            if(document.getElementById('intel-entry-form').classList.contains('active')) return;
+            const div = document.getElementById('events-list');
+            div.innerHTML = '';
+            events.forEach(e => {
+                const isClosed = !!e.closed_at;
+                const color = getColorByIntensity(e.intensity, isClosed);
+                div.innerHTML += `
+                    <div style="background: #0b0c0f; padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid ${color}; border-right: 1px solid var(--border-color); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                        <strong style="display:block; margin-bottom: 4px;">${e.name}</strong>
+                        <div style="font-size: 11px; color: var(--text-muted); display:flex; justify-content: space-between;">
+                            <span>${e.intensity || 'Unknown'} Threat</span>
+                            <span>${isClosed ? 'Resolved' : 'Active'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function updateBadges() {
+            const active = events.filter(e => !e.closed_at);
+            document.getElementById('stat-high').innerText = active.filter(e => e.intensity === 'High').length;
+            document.getElementById('stat-med').innerText = active.filter(e => e.intensity === 'Medium').length;
+            document.getElementById('stat-closed').innerText = events.filter(e => e.closed_at).length;
+        }
+
+        async function resolveEvent(id) {
+            if(!confirm("Are you sure you want to resolve this operation? The area will be marked inactive.")) return;
+            await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${TABLE_EVENTS}/${id}`, {
+                method: 'PATCH', headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: { closed_at: new Date().toISOString() } })
+            });
+            fetchEvents();
+        }
+
+        // Initialization
+        setInterval(fetchEvents, 10000); // Sync every 10 seconds
+        fetchEvents();
+    </script>
+</body>
+</html>
