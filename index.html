@@ -3,125 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IAU Ground Monitor - Command Center</title>
+    <title>IAU Ground Monitor – Command Centre</title>
+    
+    <!-- Stylesheets -->
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f4f7f6; }
-        #map { height: 55vh; width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .panel { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-        select, input, button { padding: 8px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-        button { background: #1976d2; color: #fff; border: none; cursor: pointer; font-weight: 600; }
-        button:hover { background: #1565c0; }
-        .draw-btn { background: #8e44ad; }
-        .toggle-btn { background: #27ae60; }
-        .heatmap-btn { background: #d35400; }
-        .share-btn { background: #25D366; margin-top:5px; }
-        .close-btn-popup { background: #e74c3c; padding:4px 10px; font-size:12px; margin-top:5px; color:#fff; border:none; border-radius:4px; }
-        .update-btn { background: #8e44ad; padding:4px 10px; font-size:12px; margin-top:5px; }
-        #events-list { margin-top:12px; font-size:14px; color:#333; }
-        .event-item { background:#fff; padding:8px; margin-bottom:4px; border-radius:4px; border-left:4px solid #e74c3c; display:flex; justify-content:space-between; align-items:center; }
-        .event-item.closed { border-left-color:#95a5a6; opacity:0.7; }
-        .popup-progress { width:100%; height:8px; background:#ecf0f1; border-radius:4px; margin:6px 0; }
-        .popup-progress div { height:8px; border-radius:4px; }
-        #custom-loc-name { display:none; }
-        .update-feed { max-height:120px; overflow-y:auto; border-top:1px solid #eee; margin-top:8px; padding-top:8px; font-size:13px; }
-        .update-item { border-bottom:1px solid #f0f0f0; padding:4px 0; }
-        .update-item b { color:#1976d2; }
-        .member-name-input { width:120px; }
-        .draw-instructions { font-size:13px; color:#888; margin-top:5px; }
+        /* --- EXECUTIVE DARK THEME --- */
+        :root {
+            --bg-dark: #0b0e14;
+            --panel-bg: #151a22;
+            --text-light: #e8edf5;
+            --text-muted: #8892a8;
+            --border-color: #2a3442;
+            --accent-blue: #3b82f6;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --safe: #10b981;
+            --greyed: #475569;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+            margin: 0; padding: 0;
+            background: var(--bg-dark);
+            color: var(--text-light);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- MODERN HEADER NAV --- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 25px;
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.7);
+            z-index: 10;
+        }
+        .header h1 {
+            margin: 0; font-size: 20px; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
         
-        /* Side Panel for Comprehensive Data Entry */
-        .main-container { display: flex; flex: 1; overflow: hidden; margin-top:15px; }
-        #map { flex: 1; height: 60vh; }
-        .side-panel { width: 380px; background: #fff; border-left: 1px solid #ddd; display: flex; flex-direction: column; overflow-y: auto; padding:15px; border-radius:8px; margin-left:15px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-        .panel-header { font-size:16px; font-weight:bold; margin-bottom:15px; border-bottom:2px solid #1976d2; padding-bottom:8px; }
-        
-        /* Intel Form */
-        .intel-form { display: none; flex-direction: column; gap: 12px; }
+        .nav-badges { display: flex; gap: 8px; }
+        .badge {
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            background: #0b0e14; border: 1px solid var(--border-color);
+        }
+        .badge-high { color: var(--danger); border-color: var(--danger); }
+        .badge-med { color: var(--warning); border-color: var(--warning); }
+        .badge-closed { color: var(--greyed); border-color: var(--greyed); }
+
+        .user-input { display: flex; align-items: center; gap: 8px; }
+        .user-input label { font-size: 12px; color: var(--text-muted); }
+        .user-input input {
+            background: #0b0e14; border: 1px solid var(--border-color);
+            color: white; padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 120px;
+        }
+
+        /* --- LAYOUT --- */
+        .main-container {
+            display: flex; flex: 1; overflow: hidden;
+        }
+        #map { flex: 1; height: 100%; z-index: 1; }
+
+        /* --- SIDE PANEL (EXECUTIVE STYLE) --- */
+        .side-panel {
+            width: 400px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .panel-header {
+            padding: 15px; border-bottom: 1px solid var(--border-color);
+            font-weight: 600; font-size: 16px; background: #10141c;
+        }
+
+        /* --- INTEL FORM --- */
+        .helper-text { padding: 20px; color: var(--text-muted); text-align: center; font-size: 14px; }
+        .intel-form {
+            padding: 15px; display: none; flex-direction: column; gap: 14px;
+        }
         .intel-form.active { display: flex; }
-        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-row { display: flex; gap: 10px; }
         .form-row > div { flex: 1; }
-        label { font-size: 12px; font-weight:bold; color:#555; }
-        input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; color:#333; font-size: 13px; box-sizing: border-box; }
+        label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+        input, select, textarea {
+            width: 100%; padding: 8px 10px;
+            background: #0b0e14; border: 1px solid var(--border-color);
+            border-radius: 4px; color: #fff; font-size: 13px;
+        }
         input[type="file"] { padding: 5px; }
-        .helper-text { padding: 15px; font-size: 13px; color: #888; text-align: center; }
-        .data-form { margin-top:10px; border-top:1px solid #eee; padding-top:10px; }
-        .data-form label { display:block; font-weight:bold; margin-top:6px; }
-        .data-form input, .data-form textarea, .data-form select { width:100%; padding:6px; margin-bottom:6px; border:1px solid #ccc; border-radius:4px; }
-        .data-form .row { display:flex; gap:10px; }
-        .data-form .row > div { flex:1; }
-        @media (max-width: 800px) { .side-panel { width: 100%; margin-left:0; margin-top:15px; border-left:none; } .main-container { flex-direction: column; } #map { height: 50vh; } }
+
+        .btn {
+            padding: 10px; border: none; border-radius: 4px; font-weight: 600;
+            cursor: pointer; font-size: 14px; width: 100%; transition: 0.2s;
+        }
+        .btn-primary { background: var(--accent-blue); color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-light); }
+
+        /* --- EVENTS LIST --- */
+        #events-list { padding: 12px; }
+        .event-item {
+            background: #0b0e14;
+            padding: 12px; margin-bottom: 8px; border-radius: 6px;
+            border-left: 4px solid var(--danger);
+            border: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .event-item.closed { border-left-color: var(--greyed); opacity: 0.7; }
+        .event-item strong { display: block; margin-bottom: 4px; }
+        .event-item small { color: var(--text-muted); font-size: 11px; }
+
+        /* --- POPUPS --- */
+        .leaflet-popup-content-wrapper {
+            background: var(--panel-bg); color: var(--text-light);
+            border: 1px solid var(--border-color); border-radius: 8px;
+        }
+        .leaflet-popup-tip { background: var(--panel-bg); }
+        .exec-popup { min-width: 280px; max-width: 380px; }
+        .exec-popup h3 { margin: 0 0 8px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
+        .update-feed { max-height: 120px; overflow-y: auto; border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 8px; }
+        .update-item { border-bottom: 1px solid #1f2937; padding: 4px 0; }
+        .update-item b { color: var(--accent-blue); }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 850px) {
+            .header { flex-wrap: wrap; gap: 10px; }
+            .side-panel { width: 100%; max-height: 45vh; border-left: none; border-top: 1px solid var(--border-color); }
+            .main-container { flex-direction: column-reverse; }
+            #map { height: 55vh; }
+        }
+        
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
     </style>
 </head>
 <body>
 
-    <h2 style="margin-top:0;">🚔 IAU Ground Monitor – Command Center</h2>
-    
-    <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center; background:#fff; padding:10px; border-radius:8px;">
-        <label>My Name: <input type="text" id="memberName" class="member-name-input" placeholder="e.g. Officer K"></label>
-        <div style="display:flex; gap:15px; margin-left:auto;">
-            <span style="font-weight:bold;">🔴 High: <span id="stat-high">0</span></span>
-            <span style="font-weight:bold;">🟠 Med: <span id="stat-med">0</span></span>
-            <span style="font-weight:bold;">⚪ Closed: <span id="stat-closed">0</span></span>
+    <!-- HEADER NAVIGATION -->
+    <div class="header">
+        <h1>🛡️ IAU Ground Monitor – Command Centre</h1>
+        
+        <div class="header-controls">
+            <div class="user-input">
+                <label>Officer:</label>
+                <input type="text" id="memberName" placeholder="e.g. Commander" value="Commander">
+            </div>
+            
+            <div class="nav-badges">
+                <span class="badge badge-high">🔴 <span id="stat-high">0</span></span>
+                <span class="badge badge-med">🟠 <span id="stat-med">0</span></span>
+                <span class="badge badge-closed">⚪ <span id="stat-closed">0</span></span>
+            </div>
         </div>
     </div>
 
+    <!-- MAIN LAYOUT -->
     <div class="main-container">
         <div id="map"></div>
         
         <div class="side-panel">
-            <div class="panel-header" id="panel-title">Operations Log</div>
+            <div class="panel-header" id="panel-title">📋 Operations Log</div>
             
             <div id="helper-msg" class="helper-text">
-                Use the drawing tools on the map (top left) to outline a demonstration zone or route.
+                ✏️ Click <b>"Draw Zone/Route"</b> (top left of map) to outline an incident area.
             </div>
 
-            <!-- Comprehensive Intel Entry Form -->
+            <!-- INTELLIGENCE FORM -->
             <div class="intel-form" id="intel-entry-form">
-                <h3 style="margin: 0; color: #1976d2; font-size: 15px;">New Intelligence Report</h3>
+                <h3 style="margin: 0; color: var(--accent-blue); font-size: 15px;">New Incident Report</h3>
+                
                 <div class="form-group">
                     <label>Location / Zone Name</label>
                     <input type="text" id="ev-name" placeholder="e.g., Parliament Road Axis">
                 </div>
+                
                 <div class="form-row">
                     <div class="form-group">
                         <label>Threat Intensity</label>
                         <select id="ev-intensity">
-                            <option value="High">🔴 High (Violent/Destructive)</option>
-                            <option value="Medium" selected>🟠 Medium (Rowdy/Tense)</option>
-                            <option value="Low">🟢 Low (Peaceful/Gathering)</option>
+                            <option value="High">🔴 High (Violent)</option>
+                            <option value="Medium" selected>🟠 Medium (Rowdy)</option>
+                            <option value="Low">🟢 Low (Peaceful)</option>
                         </select>
                     </div>
                 </div>
+
                 <div class="form-row">
-                    <div class="form-group"><label>Est. Demonstrators</label><input type="number" id="ev-demos" placeholder="0"></div>
-                    <div class="form-group"><label>Est. Criminals</label><input type="number" id="ev-crims" placeholder="0"></div>
+                    <div class="form-group"><label>Demonstrators</label><input type="number" id="ev-demos" placeholder="0"></div>
+                    <div class="form-group"><label>Criminals</label><input type="number" id="ev-crims" placeholder="0"></div>
                     <div class="form-group"><label>Watchers</label><input type="number" id="ev-watch" placeholder="0"></div>
                 </div>
+
                 <div class="form-group">
                     <label>Damages Done</label>
-                    <textarea id="ev-damages" rows="2" placeholder="Describe property destruction..."></textarea>
+                    <textarea id="ev-damages" rows="2" placeholder="Property destruction..."></textarea>
                 </div>
+
                 <div class="form-group">
                     <label>Business / Traffic Impact</label>
-                    <textarea id="ev-impact" rows="2" placeholder="e.g., Shops closed, roads blocked..."></textarea>
+                    <textarea id="ev-impact" rows="2" placeholder="Shops closed, roads blocked..."></textarea>
                 </div>
+
                 <div class="form-group">
-                    <label>Upload Ground Media (Photos/Videos)</label>
+                    <label>Upload Media (Photos/Videos)</label>
                     <input type="file" id="ev-media" accept="image/*,video/*" multiple>
-                    <small style="color: #888; font-size: 10px;">Securely uploaded to Airtable.</small>
+                    <small style="color: var(--text-muted); font-size: 10px;">Securely uploaded to Airtable.</small>
                 </div>
-                <button class="btn btn-blue" style="margin-top: 10px; background:#1976d2; border:none; color:#fff; padding:10px; border-radius:4px; cursor:pointer;" onclick="submitIntelReport()">✅ START & Transmit to Command</button>
-                <button class="btn" style="background: transparent; border: 1px solid #ccc; color: #333; padding:10px; border-radius:4px; cursor:pointer;" onclick="cancelDraft()">Cancel</button>
+
+                <button class="btn btn-primary" onclick="submitIntelReport()">✅ START & Transmit</button>
+                <button class="btn btn-outline" onclick="cancelDraft()">Cancel</button>
             </div>
             
-            <div id="events-list" style="padding: 15px;"></div>
+            <div id="events-list"></div>
         </div>
     </div>
 
+    <!-- --- MODULAR JAVASCRIPT LOADING (ORDER IS CRITICAL) --- -->
     <script src="config.js"></script>
     <script src="airtable.js"></script>
     <script src="map.js"></script>
