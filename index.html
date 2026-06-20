@@ -3,171 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IAU Ground Monitor – Command Centre (Self‑Hosted)</title>
+    <title>🚔 IAU - Tactical Command Center</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <style>
-        /* -- EXECUTIVE DARK THEME (same as before) -- */
         :root {
-            --bg-dark: #0f1115; --panel-bg: #1a1d24; --text-light: #e2e8f0; --text-muted: #94a3b8;
-            --border-color: #2d3748; --accent-blue: #3b82f6; --danger: #ef4444; --warning: #f59e0b;
-            --safe: #10b981; --greyed: #475569;
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --accent-blue: #1976d2;
+            --accent-red: #e74c3c;
+            --accent-orange: #f39c12;
+            --accent-green: #27ae60;
+            --border-color: #333;
+            --greyed: #555;
         }
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; background: var(--bg-dark); color: var(--text-light); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 25px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
-        .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
-        .header-controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
-        .user-input { display: flex; align-items: center; gap: 8px; }
-        .user-input input { background: #0b0c0f; border: 1px solid var(--border-color); color: white; padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 120px; }
-        .nav-badges { display: flex; gap: 8px; }
-        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #0b0c0f; border: 1px solid var(--border-color); }
-        .badge-high { color: var(--danger); border-color: var(--danger); }
-        .badge-med { color: var(--warning); border-color: var(--warning); }
-        .badge-closed { color: var(--greyed); border-color: var(--greyed); }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 15px; background: var(--bg-color); color: var(--text-main); }
+        h2 { margin-top: 0; border-bottom: 2px solid var(--accent-blue); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .dashboard { display: flex; gap: 15px; margin-bottom: 15px; }
+        .stat-card { flex: 1; background: var(--panel-bg); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color); }
+        .stat-card h3 { margin: 0; font-size: 24px; color: var(--accent-blue); }
+        .stat-card span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; }
 
-        .map-controls { display: flex; gap: 10px; padding: 8px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); flex-wrap: wrap; align-items: center; flex-shrink: 0; }
-        .map-controls select, .map-controls input { background: #0b0c0f; border: 1px solid var(--border-color); color: white; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
-        .map-controls button { background: var(--accent-blue); color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 13px; }
-        .map-controls .draw-btn { background: #8e44ad; }
-        .map-controls .toggle-btn { background: #27ae60; }
-        .map-controls .heatmap-btn { background: #d35400; }
+        #map { height: 50vh; width: 100%; border-radius: 8px; border: 1px solid var(--border-color); z-index: 1; }
+        
+        .controls, .panel { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
+        
+        select, input, button { padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: #2a2a2a; color: var(--text-main); }
+        button { background: var(--accent-blue); color: #fff; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); }
+        
+        .btn-report { background: var(--accent-green); }
+        .btn-danger { background: var(--accent-red); }
 
-        .main-container { display: flex; flex: 1; overflow: hidden; }
-        #map { flex: 1; height: 100%; z-index: 1; }
-        .side-panel { width: 400px; background: var(--panel-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
-        .panel-header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 16px; background: #14161b; display: flex; gap: 10px; }
-        .panel-header button { background: transparent; border: none; color: var(--text-muted); padding: 4px 12px; font-weight: 600; cursor: pointer; border-radius: 4px; }
-        .panel-header button.active { background: var(--accent-blue); color: #fff; }
-        .panel-content { flex: 1; overflow-y: auto; padding: 12px; }
-        .intel-form { padding: 15px; display: none; flex-direction: column; gap: 12px; }
+        .main-container { display: flex; gap: 15px; margin-top: 15px; }
+        #map { flex: 1; height: 60vh; }
+        .side-panel { width: 400px; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; max-height: 60vh; overflow-y: auto; }
+        .panel-header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; gap: 10px; }
+        .panel-header button { background: transparent; border: none; color: #aaa; padding: 4px 12px; font-weight: 600; cursor: pointer; }
+        .panel-header button.active { background: var(--accent-blue); color: #fff; border-radius: 4px; }
+        .panel-content { flex: 1; padding: 12px; overflow-y: auto; }
+        .helper-text { text-align: center; color: #aaa; padding: 20px; }
+
+        .intel-form { display: none; flex-direction: column; gap: 12px; }
         .intel-form.active { display: flex; }
-        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-row { display: flex; gap: 10px; }
         .form-row > div { flex: 1; }
-        label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
-        input, select, textarea { width: 100%; padding: 8px 10px; background: #0b0c0f; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 13px; box-sizing: border-box; }
+        label { font-size: 11px; text-transform: uppercase; color: #aaa; font-weight: 600; }
+        input, select, textarea { width: 100%; padding: 8px 10px; background: #2a2a2a; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 13px; }
         input[type="file"] { padding: 5px; }
         .btn { padding: 10px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%; }
         .btn-primary { background: var(--accent-blue); color: #fff; }
-        .btn-danger { background: var(--danger); color: #fff; }
-        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-light); }
-        .helper-text { padding: 20px; color: var(--text-muted); text-align: center; font-size: 14px; }
+        .btn-danger { background: var(--accent-red); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
 
         .events-list { display: flex; flex-direction: column; gap: 8px; }
-        .event-item { background: #0b0c0f; padding: 12px; border-radius: 6px; border-left: 4px solid var(--danger); border: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; }
-        .event-item:hover { background: #14161b; }
-        .event-item.closed { border-left-color: var(--greyed); opacity: 0.7; }
-        .event-item strong { display: block; margin-bottom: 4px; }
-        .event-item small { color: var(--text-muted); font-size: 11px; }
+        .event-card { background: #2a2a2a; padding: 12px; border-radius: 6px; border-left: 4px solid var(--accent-red); border: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; }
+        .event-card:hover { background: #333; }
+        .event-card.closed { border-left-color: var(--greyed); opacity: 0.7; }
+        .event-card h4 { margin: 0 0 5px 0; }
+        .event-meta { font-size: 12px; color: #aaa; margin-bottom: 8px; }
 
-        .feed-item { background: #0b0c0f; padding: 8px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid var(--accent-blue); }
+        .feed-item { background: #2a2a2a; padding: 8px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid var(--accent-blue); }
         .feed-item b { color: var(--accent-blue); }
-        .feed-item small { color: var(--text-muted); font-size: 10px; }
+        .feed-item small { color: #aaa; font-size: 10px; }
 
-        .leaflet-popup-content-wrapper { background: var(--panel-bg); color: var(--text-light); border: 1px solid var(--border-color); border-radius: 8px; }
+        .leaflet-popup-content-wrapper { background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; }
         .leaflet-popup-tip { background: var(--panel-bg); }
         .exec-popup { min-width: 280px; max-width: 380px; }
         .exec-popup h3 { margin: 0 0 8px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
         .update-feed { max-height: 120px; overflow-y: auto; border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 8px; }
-        .update-item { border-bottom: 1px solid #1f2937; padding: 4px 0; }
+        .update-item { border-bottom: 1px solid #333; padding: 4px 0; }
         .update-item b { color: var(--accent-blue); }
 
         @media (max-width: 850px) {
-            .header { flex-wrap: wrap; gap: 10px; }
-            .side-panel { width: 100%; max-height: 45vh; border-left: none; border-top: 1px solid var(--border-color); }
-            .main-container { flex-direction: column-reverse; }
-            #map { height: 55vh; }
+            .main-container { flex-direction: column; }
+            .side-panel { width: 100%; max-height: 40vh; }
+            #map { height: 50vh; }
         }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+        /* Login Overlay */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-color); display: flex; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        #login-box {
+            background: var(--panel-bg); padding: 30px; border-radius: 8px;
+            border: 1px solid var(--border-color); text-align: center;
+        }
+        #login-box h2 { color: var(--accent-blue); margin-top: 0; }
+        #login-box input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 4px; background: #2a2a2a; color: #fff; }
+        #login-box button { width: 100%; padding: 10px; background: var(--accent-blue); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        #login-error { color: var(--accent-red); font-size: 13px; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>🛡️ IAU Ground Monitor – Self‑Hosted</h1>
-        <div class="header-controls">
-            <div class="user-input">
-                <label>Officer:</label>
-                <input type="text" id="memberName" placeholder="e.g. Commander" value="Commander">
-            </div>
-            <div class="nav-badges">
-                <span class="badge badge-high">🔴 <span id="stat-high">0</span></span>
-                <span class="badge badge-med">🟠 <span id="stat-med">0</span></span>
-                <span class="badge badge-closed">⚪ <span id="stat-closed">0</span></span>
-            </div>
+    <!-- Login Overlay -->
+    <div id="login-overlay">
+        <div id="login-box">
+            <h2>🔐 IAU Command Center</h2>
+            <p style="color:#aaa; margin-bottom:20px;">Enter access password</p>
+            <input type="password" id="login-password" placeholder="Password">
+            <button onclick="checkLogin()">Unlock</button>
+            <div id="login-error">Incorrect password.</div>
         </div>
     </div>
 
-    <div class="map-controls">
-        <select id="locationSelect">
-            <option value="">📍 Select Station / Draw Zone</option>
-            <option value="custom">🟡 Custom Pin (Tap map)</option>
-            <option disabled>--- Known Stations ---</option>
-        </select>
-        <input type="text" id="custom-loc-name" placeholder="Name location" style="display:none; width:150px;">
-        <select id="eventType">
-            <option value="Demonstration">Demonstration</option>
-            <option value="Traffic Incident">Traffic Incident</option>
-        </select>
-        <select id="congestionLevel" style="display:none;">
-            <option value="Low">🟢 Low</option>
-            <option value="Medium">🟠 Medium</option>
-            <option value="High">🔴 High</option>
-        </select>
-        <label style="color:var(--text-muted); font-size:13px;">Hrs: <input type="number" id="duration" value="2" min="0.5" step="0.5" style="width:60px;"></label>
-        <button onclick="reportEvent()">➕ Report Start</button>
-        <button class="draw-btn" onclick="toggleDraw()">✏️ Draw Zone</button>
-        <button class="toggle-btn" id="toggleBtn" onclick="toggleMap()">🛰️ Satellite</button>
-        <button class="heatmap-btn" id="heatmapToggle" onclick="toggleHeatmap()">🔥 Prevalence</button>
-        <button onclick="clearAllClosed()" style="background:var(--danger);">🗑️ Clear Closed</button>
-    </div>
-    <div id="drawInstructions" style="display:none; padding:5px 20px; background:#2a3442; color:var(--text-light); font-size:13px;">Click on the map to draw a polygon (zone) or polyline (route). Double‑click to finish.</div>
-
-    <div class="main-container">
-        <div id="map"></div>
-        <div class="side-panel">
-            <div class="panel-header">
-                <button id="tab-log" class="active" onclick="switchTab('log')">📋 Operations Log</button>
-                <button id="tab-feed" onclick="switchTab('feed')">💬 Live Feed</button>
+    <!-- Main App (hidden until login) -->
+    <div id="app" style="display:none;">
+        <h2>
+            <span>🚔 IAU - Tactical Command</span>
+            <div>
+                <button class="btn-report" onclick="generateCSVReport()" style="margin-right:5px;">📊 Export CSV</button>
+                <button class="btn-report" onclick="exportGeoJSON()">🗺️ Download Map Data</button>
             </div>
-            <div class="panel-content">
-                <div class="intel-form" id="intel-entry-form">
-                    <h3 style="margin:0; color:var(--accent-blue);">New Intelligence Report</h3>
-                    <div class="form-group"><label>Location / Zone Name</label><input type="text" id="ev-name" placeholder="e.g., Parliament Road Axis"></div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Threat Intensity</label>
-                            <select id="ev-intensity">
-                                <option value="High">🔴 High (Violent)</option>
-                                <option value="Medium" selected>🟠 Medium (Rowdy)</option>
-                                <option value="Low">🟢 Low (Peaceful)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Demonstrators</label><input type="number" id="ev-demos" placeholder="0"></div>
-                        <div class="form-group"><label>Criminals</label><input type="number" id="ev-crims" placeholder="0"></div>
-                        <div class="form-group"><label>Watchers</label><input type="number" id="ev-watch" placeholder="0"></div>
-                    </div>
-                    <div class="form-group"><label>Damages Done</label><textarea id="ev-damages" rows="2" placeholder="Property destruction..."></textarea></div>
-                    <div class="form-group"><label>Business / Traffic Impact</label><textarea id="ev-impact" rows="2" placeholder="Shops closed, roads blocked..."></textarea></div>
-                    <div class="form-group"><label>Upload Ground Media</label><input type="file" id="ev-media" accept="image/*,video/*" multiple><small style="color:var(--text-muted); font-size:10px;">Stored in browser (not synced to GitHub).</small></div>
-                    <button class="btn btn-primary" onclick="submitIntelReport()">✅ START & Transmit</button>
-                    <button class="btn btn-outline" onclick="cancelDraft()">Cancel</button>
-                </div>
+        </h2>
 
-                <div id="panel-log" class="events-list" style="display:block;">
-                    <div id="events-list-content"><em style="color:var(--text-muted);">No incidents reported yet.</em></div>
+        <div class="dashboard">
+            <div class="stat-card">
+                <h3 id="stat-active">0</h3>
+                <span>Active Incidents</span>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-demos">0</h3>
+                <span>Demonstrations</span>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-closed">0</h3>
+                <span>Resolved</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <label>Operator: <input type="text" id="memberName" placeholder="e.g. CMD-01"></label>
+            <button onclick="toggleMapMode()">🗺️ Map Mode</button>
+            <button onclick="toggleHeatmap()">🔥 Threat Heatmap</button>
+            <button class="btn-danger" onclick="clearAllClosed()">🗑️ Purge Resolved</button>
+        </div>
+
+        <div class="main-container">
+            <div id="map"></div>
+            <div class="side-panel">
+                <div class="panel-header">
+                    <button id="tab-log" class="active" onclick="switchTab('log')">📋 Operations Log</button>
+                    <button id="tab-feed" onclick="switchTab('feed')">💬 Live Feed</button>
                 </div>
-                <div id="panel-feed" style="display:none;">
-                    <div style="margin-bottom:12px; display:flex; gap:6px;">
-                        <input type="text" id="feed-message" placeholder="Type a live update..." style="flex:1; background:#0b0c0f; border:1px solid var(--border-color); color:#fff; padding:8px; border-radius:4px;">
-                        <button class="btn btn-primary" onclick="postFeedUpdate()" style="width:auto; padding:8px 16px;">Post</button>
+                <div class="panel-content">
+                    <!-- Intel Form (appears when drawing) -->
+                    <div class="intel-form" id="intel-entry-form">
+                        <h3 style="margin:0; color:var(--accent-blue);">New Incident Report</h3>
+                        <div class="form-group"><label>Location / Zone Name *</label><input type="text" id="ev-name" required placeholder="e.g., Parliament Road Axis"></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Threat Intensity *</label>
+                                <select id="ev-intensity" required>
+                                    <option value="">Select intensity</option>
+                                    <option value="High">🔴 High (Violent)</option>
+                                    <option value="Medium" selected>🟠 Medium (Rowdy)</option>
+                                    <option value="Low">🟢 Low (Peaceful)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Est. Demonstrators *</label><input type="number" id="ev-demos" required placeholder="0"></div>
+                            <div class="form-group"><label>Est. Criminals *</label><input type="number" id="ev-crims" required placeholder="0"></div>
+                            <div class="form-group"><label>Watchers *</label><input type="number" id="ev-watch" required placeholder="0"></div>
+                        </div>
+                        <div class="form-group"><label>Damages Done *</label><textarea id="ev-damages" required rows="2" placeholder="Describe property destruction..."></textarea></div>
+                        <div class="form-group"><label>Business / Traffic Impact *</label><textarea id="ev-impact" required rows="2" placeholder="Shops closed, roads blocked..."></textarea></div>
+                        <div class="form-group"><label>Upload Media (Photos/Videos)</label><input type="file" id="ev-media" accept="image/*,video/*" multiple></div>
+                        <button class="btn btn-primary" onclick="submitIntelReport()">✅ START & Transmit</button>
+                        <button class="btn btn-outline" onclick="cancelDraft()">Cancel</button>
                     </div>
-                    <div id="feed-content"><em style="color:var(--text-muted);">No live updates yet.</em></div>
+
+                    <div id="panel-log" class="events-list" style="display:block;">
+                        <div id="events-list-content"><em style="color:#aaa;">Awaiting telemetry data...</em></div>
+                    </div>
+                    <div id="panel-feed" style="display:none;">
+                        <div style="margin-bottom:12px; display:flex; gap:6px;">
+                            <input type="text" id="feed-message" placeholder="Type a live update..." style="flex:1; background:#2a2a2a; border:1px solid var(--border-color); color:#fff; padding:8px; border-radius:4px;">
+                            <button class="btn btn-primary" onclick="postFeedUpdate()" style="width:auto; padding:8px 16px;">Post</button>
+                        </div>
+                        <div id="feed-content"><em style="color:#aaa;">No live updates yet.</em></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -176,13 +202,31 @@
     <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/Leaflet/Leaflet.heat@master/dist/leaflet-heat.js"></script>
     <script>
-        // ========== GITHUB CONFIG ==========
+        // ========== CONFIG ==========
+        // SET YOUR PASSWORD AND GITHUB TOKEN HERE
+        const APP_PASSWORD = "12345"; // Change this!
         const GITHUB_REPO = "gnarlythee/Demonstrations-Tracker"; // your repo
-        const GITHUB_FILE = "data.json"; // the JSON file in the repo
-        const GITHUB_TOKEN = "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"; // REPLACE WITH YOUR TOKEN
+        const GITHUB_FILE = "data.json";
+        const GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // replace with your token
 
-        // ========== GITHUB API HELPER ==========
+        // ========== LOGIN ==========
+        function checkLogin() {
+            const pass = document.getElementById('login-password').value;
+            if (pass === APP_PASSWORD) {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                initApp();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+
+        // ========== GITHUB DATABASE ==========
+        let localData = { events: [], updates: [] };
+        let fileSha = null;
+
         async function fetchGitHubFile() {
             const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
             const res = await fetch(url, { headers: { Authorization: `token ${GITHUB_TOKEN}` } });
@@ -208,10 +252,6 @@
             return await res.json();
         }
 
-        // ========== LOCAL DATA CACHE ==========
-        let localData = { events: [], updates: [] };
-        let fileSha = null;
-
         async function loadData() {
             try {
                 const { content, sha } = await fetchGitHubFile();
@@ -219,7 +259,7 @@
                 fileSha = sha;
                 window.events = localData.events;
                 window.updates = localData.updates;
-                updateBadges();
+                updateDashboard();
                 renderMapMarkers();
                 renderList();
                 renderFeed();
@@ -238,151 +278,13 @@
             }
         }
 
-        // ========== MAP SETUP ==========
-        const map = L.map('map').setView([-1.286389, 36.817223], 13);
-        const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
-        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
-        streetLayer.addTo(map);
-        let currentLayer = 'street';
-        function toggleMap() {
-            const btn = document.getElementById('toggleBtn');
-            if (currentLayer === 'street') {
-                map.removeLayer(streetLayer);
-                satLayer.addTo(map);
-                currentLayer = 'sat';
-                btn.innerText = '🗺️ Street';
-            } else {
-                map.removeLayer(satLayer);
-                streetLayer.addTo(map);
-                currentLayer = 'street';
-                btn.innerText = '🛰️ Satellite';
-            }
-        }
-
-        // ========== DRAW TOOLS ==========
-        let drawControl = null;
-        let isDrawing = false;
-        const drawLayer = L.featureGroup().addTo(map);
-        let currentDraftGeoJSON = null;
-
-        function toggleDraw() {
-            const btn = document.querySelector('.draw-btn');
-            const instructions = document.getElementById('drawInstructions');
-            if (isDrawing) {
-                if (drawControl) map.removeControl(drawControl);
-                drawControl = null;
-                isDrawing = false;
-                btn.innerText = '✏️ Draw Zone';
-                instructions.style.display = 'none';
-                map.getContainer().style.cursor = '';
-            } else {
-                drawControl = new L.Control.Draw({
-                    position: 'topright',
-                    draw: {
-                        polygon: { allowIntersection: false, showArea: true },
-                        polyline: { shapeOptions: { color: '#3b82f6', weight: 3 } },
-                        rectangle: false, circle: false, marker: false, circlemarker: false
-                    },
-                    edit: false
-                });
-                map.addControl(drawControl);
-                isDrawing = true;
-                btn.innerText = '⏹️ Stop Drawing';
-                instructions.style.display = 'block';
-                map.getContainer().style.cursor = 'crosshair';
-            }
-        }
-
-        map.on(L.Draw.Event.CREATED, function(event) {
-            const layer = event.layer;
-            currentDraftGeoJSON = layer.toGeoJSON();
-            drawLayer.addLayer(layer);
-            document.getElementById('helper-msg').classList.add('hidden');
-            document.getElementById('intel-entry-form').classList.add('active');
-            switchTab('log');
-        });
-
-        function cancelDraft() {
-            drawLayer.clearLayers();
-            currentDraftGeoJSON = null;
-            document.getElementById('intel-entry-form').classList.remove('active');
-            renderList();
-        }
-
-        // ========== HEATMAP ==========
-        let heatLayer = null;
-        let heatmapActive = false;
-        function toggleHeatmap() {
-            const btn = document.getElementById('heatmapToggle');
-            heatmapActive = !heatmapActive;
-            if (heatmapActive) {
-                btn.innerText = '🔥 Hide Prevalence';
-                updateHeatmap();
-            } else {
-                if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-                btn.innerText = '🔥 Prevalence';
-            }
-        }
-        function updateHeatmap() {
-            if (!heatmapActive) return;
-            if (heatLayer) map.removeLayer(heatLayer);
-            const now = new Date();
-            const activePoints = (window.events || [])
-                .filter(e => !e.closed_at && now < new Date(e.estimated_end) && e.lat && e.lng)
-                .map(e => [e.lat, e.lng]);
-            if (activePoints.length === 0) return;
-            heatLayer = L.heatLayer(activePoints, { radius: 30, blur: 20, maxZoom: 15, gradient: {0.2:'blue',0.4:'lime',0.6:'yellow',0.8:'orange',1.0:'red'} }).addTo(map);
-        }
-
-        // ========== CUSTOM PIN ==========
-        let customMarker = null, customLatLng = null;
-        map.on('click', function(e) {
-            const sel = document.getElementById('locationSelect');
-            if (sel && sel.value !== 'custom') return;
-            if (customMarker) map.removeLayer(customMarker);
-            customLatLng = e.latlng;
-            customMarker = L.marker([customLatLng.lat, customLatLng.lng], { draggable: true, icon: L.divIcon({ html: '📍', className: 'custom-pin', iconSize: [24,24] }) }).addTo(map);
-            customMarker.on('dragend', function() { customLatLng = customMarker.getLatLng(); });
-            document.getElementById('custom-loc-name').style.display = 'inline-block';
-            customMarker.bindPopup("Commenced here").openPopup();
-        });
-
-        document.getElementById('locationSelect')?.addEventListener('change', function() {
-            const nameInput = document.getElementById('custom-loc-name');
-            if (this.value === 'custom') {
-                nameInput.style.display = 'inline-block';
-                if (!customMarker) map.getContainer().style.cursor = 'crosshair';
-            } else {
-                nameInput.style.display = 'none';
-                map.getContainer().style.cursor = '';
-                if (customMarker) { map.removeLayer(customMarker); customMarker = null; customLatLng = null; }
-            }
-        });
-
-        // Stations (for dropdown)
-        const stations = [
-            { name: "Nairobi Central Police", lat: -1.2833, lng: 36.8167 },
-            { name: "Gigiri Police Station", lat: -1.2333, lng: 36.8000 },
-            { name: "Kasarani Police Station", lat: -1.2167, lng: 36.9167 },
-            { name: "Buruburu Police Station", lat: -1.3000, lng: 36.9167 },
-            { name: "Parklands Police Station", lat: -1.2667, lng: 36.8167 }
-        ];
-        stations.forEach((s, i) => {
-            L.marker([s.lat, s.lng], { icon: L.divIcon({ html: '📌', iconSize: [20,20] }) }).bindPopup(`<b>${s.name}</b>`).addTo(map);
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.innerText = s.name;
-            document.getElementById('locationSelect')?.appendChild(opt);
-        });
-
-        // ========== DATA OPERATIONS ==========
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
 
         async function createEvent(data) {
             const event = { id: generateId(), ...data, created_at: new Date().toISOString() };
             localData.events.unshift(event);
             await saveData();
-            loadData(); // refresh
+            loadData();
         }
 
         async function updateEvent(id, updates) {
@@ -412,101 +314,239 @@
             loadData();
         }
 
-        // ========== INTEL FORM SUBMIT ==========
-        async function submitIntelReport() {
-            if (!currentDraftGeoJSON) return alert("Please draw a zone on the map first.");
-            const name = document.getElementById('ev-name').value || "Unnamed Axis";
+        // ========== MAP SETUP (robust) ==========
+        // Wait for DOM to be ready and Leaflet loaded
+        function initMap() {
+            // Check if map container exists
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer) {
+                console.error("Map container not found!");
+                return;
+            }
+
+            // Initialize map
+            const map = L.map('map').setView([-1.286389, 36.817223], 12);
+
+            // Load tile layers
+            const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
+            const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
+            const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+            const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
+
+            // Default to dark, but fallback to OSM if dark fails
+            let currentLayer = 'dark';
+            darkLayer.addTo(map);
+
+            const mapLayers = { dark: darkLayer, street: streetLayer, sat: satLayer, osm: osmLayer };
+            const layerNames = ['dark', 'street', 'sat', 'osm'];
+            let layerIndex = 0;
+
+            // Expose toggle function globally
+            window.toggleMapMode = function() {
+                const current = layerNames[layerIndex];
+                map.removeLayer(mapLayers[current]);
+                layerIndex = (layerIndex + 1) % layerNames.length;
+                const next = layerNames[layerIndex];
+                mapLayers[next].addTo(map);
+                currentLayer = next;
+            };
+
+            // ========== DRAW TOOLS ==========
+            let drawControl = null;
+            let isDrawing = false;
+            const drawLayer = L.featureGroup().addTo(map);
+            let currentDraftGeoJSON = null;
+
+            window.toggleDraw = function() {
+                const btn = document.querySelector('.draw-btn');
+                const instructions = document.getElementById('drawInstructions');
+                if (isDrawing) {
+                    if (drawControl) map.removeControl(drawControl);
+                    drawControl = null; isDrawing = false;
+                    btn.innerText = '✏️ Draw Zone';
+                    if (instructions) instructions.style.display = 'none';
+                    map.getContainer().style.cursor = '';
+                } else {
+                    drawControl = new L.Control.Draw({
+                        position: 'topright',
+                        draw: {
+                            polygon: { allowIntersection: false, showArea: true },
+                            polyline: { shapeOptions: { color: '#1976d2', weight: 3 } },
+                            rectangle: false, circle: false, marker: false, circlemarker: false
+                        },
+                        edit: false
+                    });
+                    map.addControl(drawControl);
+                    isDrawing = true;
+                    btn.innerText = '⏹️ Stop Drawing';
+                    if (instructions) instructions.style.display = 'block';
+                    map.getContainer().style.cursor = 'crosshair';
+                }
+            };
+
+            map.on(L.Draw.Event.CREATED, function(event) {
+                const layer = event.layer;
+                currentDraftGeoJSON = layer.toGeoJSON();
+                drawLayer.addLayer(layer);
+                document.getElementById('intel-entry-form').classList.add('active');
+                switchTab('log');
+            });
+
+            window.cancelDraft = function() {
+                drawLayer.clearLayers();
+                currentDraftGeoJSON = null;
+                document.getElementById('intel-entry-form').classList.remove('active');
+            };
+
+            // ========== HEATMAP ==========
+            let heatLayer = null;
+            let heatmapActive = false;
+            window.toggleHeatmap = function() {
+                heatmapActive = !heatmapActive;
+                if (heatmapActive) {
+                    updateHeatmap();
+                } else {
+                    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+                }
+            };
+            function updateHeatmap() {
+                if (!heatmapActive) return;
+                if (heatLayer) map.removeLayer(heatLayer);
+                const now = new Date();
+                const activePoints = (window.events || [])
+                    .filter(e => !e.closed_at && now < new Date(e.estimated_end) && e.lat && e.lng)
+                    .map(e => [e.lat, e.lng]);
+                if (activePoints.length === 0) return;
+                heatLayer = L.heatLayer(activePoints, { radius: 30, blur: 20, maxZoom: 15, gradient: {0.2:'blue',0.4:'lime',0.6:'yellow',0.8:'orange',1.0:'red'} }).addTo(map);
+            }
+
+            // ========== CUSTOM PIN ==========
+            let customMarker = null;
+            let customLatLng = null;
+            map.on('click', function(e) {
+                const sel = document.getElementById('locationSelect');
+                if (sel && sel.value !== 'custom') return;
+                if (customMarker) map.removeLayer(customMarker);
+                customLatLng = e.latlng;
+                customMarker = L.marker([customLatLng.lat, customLatLng.lng], { draggable: true, icon: L.divIcon({ html: '📍', className: 'custom-pin', iconSize: [24,24] }) }).addTo(map);
+                customMarker.on('dragend', function() { customLatLng = customMarker.getLatLng(); });
+                customMarker.bindPopup("Commenced here").openPopup();
+            });
+
+            document.getElementById('locationSelect')?.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    if (!customMarker) map.getContainer().style.cursor = 'crosshair';
+                } else {
+                    map.getContainer().style.cursor = '';
+                    if (customMarker) { map.removeLayer(customMarker); customMarker = null; customLatLng = null; }
+                }
+            });
+
+            // ========== STATIONS (dropdown) ==========
+            const stations = [
+                { name: "Nairobi Central Police", lat: -1.2833, lng: 36.8167 },
+                { name: "Gigiri Police Station", lat: -1.2333, lng: 36.8000 },
+                { name: "Kasarani Police Station", lat: -1.2167, lng: 36.9167 },
+                { name: "Buruburu Police Station", lat: -1.3000, lng: 36.9167 }
+            ];
+            stations.forEach((s, i) => {
+                L.marker([s.lat, s.lng], { icon: L.divIcon({ html: '📌', iconSize: [20,20] }) }).bindPopup(`<b>${s.name}</b>`).addTo(map);
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.innerText = s.name;
+                document.getElementById('locationSelect')?.appendChild(opt);
+            });
+
+            // Add "Custom Pin" option
+            const customOpt = document.createElement('option');
+            customOpt.value = 'custom';
+            customOpt.innerText = '📍 Custom Pin (Tap map)';
+            document.getElementById('locationSelect')?.prepend(customOpt);
+
+            // Add Draw button to the controls
+            const controlsDiv = document.querySelector('.controls');
+            if (controlsDiv) {
+                const drawBtn = document.createElement('button');
+                drawBtn.className = 'draw-btn';
+                drawBtn.innerText = '✏️ Draw Zone';
+                drawBtn.onclick = window.toggleDraw;
+                controlsDiv.appendChild(drawBtn);
+            }
+
+            // Add instructions div after controls
+            const instrDiv = document.createElement('div');
+            instrDiv.id = 'drawInstructions';
+            instrDiv.style.display = 'none';
+            instrDiv.style.padding = '5px 20px';
+            instrDiv.style.background = '#2a2a2a';
+            instrDiv.style.color = '#aaa';
+            instrDiv.style.fontSize = '13px';
+            instrDiv.innerText = 'Click on the map to draw a polygon (zone) or polyline (route). Double‑click to finish.';
+            controlsDiv.parentNode.insertBefore(instrDiv, controlsDiv.nextSibling);
+
+            // Store map globally for render functions
+            window.map = map;
+            window.eventMarkers = [];
+            window.events = [];
+            window.updates = [];
+
+            // Load data after map is ready
+            loadData();
+        }
+
+        // ========== DATA OPERATIONS ==========
+        window.submitIntelReport = async function() {
+            // Validate required fields
+            const name = document.getElementById('ev-name').value.trim();
             const intensity = document.getElementById('ev-intensity').value;
-            const demonstrators = parseInt(document.getElementById('ev-demos').value) || 0;
-            const criminals = parseInt(document.getElementById('ev-crims').value) || 0;
-            const watchers = parseInt(document.getElementById('ev-watch').value) || 0;
-            const damages = document.getElementById('ev-damages').value || "None reported.";
-            const business_impact = document.getElementById('ev-impact').value || "None reported.";
+            const demonstrators = document.getElementById('ev-demos').value.trim();
+            const criminals = document.getElementById('ev-crims').value.trim();
+            const watchers = document.getElementById('ev-watch').value.trim();
+            const damages = document.getElementById('ev-damages').value.trim();
+            const impact = document.getElementById('ev-impact').value.trim();
+
+            if (!currentDraftGeoJSON) return alert("Please draw a zone on the map first.");
+            if (!name || !intensity || !demonstrators || !criminals || !watchers || !damages || !impact) {
+                alert("Please fill in all required fields.");
+                return;
+            }
+
             const start = new Date().toISOString();
+            const estimated_end = new Date(Date.now() + 2 * 3600000).toISOString();
             const geometry = JSON.stringify(currentDraftGeoJSON.geometry);
-            // File uploads – we store only filenames (actual files stay in browser)
             const fileInput = document.getElementById('ev-media');
             const fileNames = Array.from(fileInput.files).map(f => f.name);
 
             const payload = {
-                name, type: "Demonstration", intensity, demonstrators, criminals, watchers,
-                damages, business_impact, start, geometry, photos: fileNames,
-                closed_at: null, estimated_end: new Date(Date.now() + 2*3600000).toISOString()
+                name, type: "Demonstration", intensity,
+                demonstrators: parseInt(demonstrators),
+                criminals: parseInt(criminals),
+                watchers: parseInt(watchers),
+                damages, business_impact: impact,
+                start, estimated_end, geometry,
+                photos: fileNames, closed_at: null,
+                lat: null, lng: null
             };
+
+            document.getElementById('intel-entry-form').innerHTML = "<h3 style='text-align:center; color:var(--accent-green);'>Transmitting...</h3>";
             await createEvent(payload);
             setTimeout(() => location.reload(), 1500);
-        }
-
-        // ========== SIMPLE PIN REPORT ==========
-        function getLocationData() {
-            const sel = document.getElementById('locationSelect');
-            if (!sel) return null;
-            if (sel.value === 'custom') {
-                if (!customLatLng) { alert("Tap map to drop a pin first."); return null; }
-                const name = document.getElementById('custom-loc-name').value || "Custom Location";
-                return { name, lat: customLatLng.lat, lng: customLatLng.lng };
-            } else { return stations[parseInt(sel.value)]; }
-        }
-
-        async function reportEvent() {
-            const loc = getLocationData();
-            if (!loc) return;
-            const type = document.getElementById('eventType').value;
-            const hours = parseFloat(document.getElementById('duration').value);
-            const congestion = document.getElementById('congestionLevel').value;
-            const start = new Date().toISOString();
-            const estimated_end = new Date(Date.now() + hours * 3600000).toISOString();
-            await createEvent({
-                name: loc.name, lat: loc.lat, lng: loc.lng,
-                type, congestion: type === 'Traffic Incident' ? congestion : null,
-                intensity: 'Medium',
-                demonstrators: 0, criminals: 0, watchers: 0,
-                damages: '', business_impact: '',
-                start, estimated_end, closed_at: null,
-                geometry: null, photos: []
-            });
-        }
-
-        // ========== RESOLVE / STOP ==========
-        async function stopEvent(id) {
-            if (!confirm("Are you sure you want to STOP this operation?")) return;
-            await updateEvent(id, { closed_at: new Date().toISOString() });
-            map.closePopup();
-        }
-
-        async function clearAllClosed() {
-            const toDelete = window.events.filter(e => e.closed_at);
-            for (let e of toDelete) {
-                await deleteEvent(e.id);
-            }
-        }
-
-        // ========== POST UPDATE ==========
-        async function postUpdate(eventId, message) {
-            const memberName = document.getElementById('memberName').value.trim() || "Commander";
-            await addUpdate(eventId, memberName, message);
-        }
-
-        async function postFeedUpdate() {
-            const msg = document.getElementById('feed-message').value.trim();
-            if (!msg) return alert("Please enter a message.");
-            const memberName = document.getElementById('memberName').value.trim() || "Commander";
-            await addUpdate('global', memberName, msg);
-            document.getElementById('feed-message').value = '';
-        }
+        };
 
         // ========== RENDER ==========
-        function updateBadges() {
+        function updateDashboard() {
             const active = window.events.filter(e => !e.closed_at);
-            document.getElementById('stat-high').innerText = active.filter(e => e.intensity === 'High').length;
-            document.getElementById('stat-med').innerText = active.filter(e => e.intensity === 'Medium').length;
+            document.getElementById('stat-active').innerText = active.length;
+            document.getElementById('stat-demos').innerText = active.filter(e => e.type === 'Demonstration').length;
             document.getElementById('stat-closed').innerText = window.events.filter(e => e.closed_at).length;
         }
 
         function renderMapMarkers() {
-            window.eventMarkers?.forEach(m => map.removeLayer(m));
+            if (!window.map) return;
+            window.eventMarkers.forEach(m => window.map.removeLayer(m));
             window.eventMarkers = [];
             const now = new Date();
+
             window.events.forEach(e => {
                 const start = new Date(e.start);
                 const estimated_end = new Date(e.estimated_end);
@@ -518,26 +558,27 @@
                     progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
                     isActive = progress < 100;
                 }
-                let color = '#95a5a6';
+                let color = '#555';
                 if (!isClosed && isActive) {
-                    if (e.intensity === 'Low') color = '#f1c40f';
+                    if (e.intensity === 'Low') color = '#27ae60';
                     else if (e.intensity === 'Medium') color = '#f39c12';
                     else if (e.intensity === 'High') color = '#e74c3c';
                 }
+
                 if (e.geometry) {
                     try {
                         const geo = JSON.parse(e.geometry);
                         const layer = L.geoJSON(geo, {
-                            style: isClosed ? { color: '#95a5a6', fillColor: '#95a5a6', fillOpacity: 0.15, weight: 2, dashArray: '5 5' } 
+                            style: isClosed ? { color: '#555', fillColor: '#555', fillOpacity: 0.15, weight: 2, dashArray: '5 5' } 
                                             : { color: color, fillColor: color, fillOpacity: 0.4, weight: 4 }
-                        }).addTo(map);
+                        }).addTo(window.map);
                         window.eventMarkers.push(layer);
                         layer.bindPopup(buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color));
                         return;
-                    } catch (err) {}
+                    } catch (err) { console.error("Invalid geometry", err); }
                 }
                 if (e.lat && e.lng) {
-                    const marker = L.circleMarker([e.lat, e.lng], { radius: 10, color, fillColor: color, fillOpacity: 0.8 }).addTo(map);
+                    const marker = L.circleMarker([e.lat, e.lng], { radius: 10, color, fillColor: color, fillOpacity: 0.8 }).addTo(window.map);
                     window.eventMarkers.push(marker);
                     marker.bindPopup(buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color));
                 }
@@ -547,41 +588,40 @@
         function buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color) {
             const closedInfo = isClosed ? `<br><b>🛑 Stopped:</b> ${new Date(e.closed_at).toLocaleTimeString()}` : '';
             const stopBtn = (!isClosed && isActive) ? `<button class="btn btn-danger" style="margin-top:8px; padding:6px; width:auto;" onclick="stopEvent('${e.id}')">🛑 STOP & RESOLVE</button>` : '';
-            const editBtn = (!isClosed) ? `<button class="btn btn-primary" style="margin-top:8px; padding:6px; width:auto;" onclick="editEvent('${e.id}')">✏️ Edit Intel</button>` : '';
             let dataHTML = `
                 <div style="margin-top:8px; border-top:1px solid var(--border-color); padding-top:8px;">
                     <b>Detailed Report</b>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:6px 0;">
-                        <div><small style="color:var(--text-muted)">Demonstrators</small><br><strong>${e.demonstrators || 0}</strong></div>
-                        <div><small style="color:var(--text-muted)">Criminals</small><br><strong>${e.criminals || 0}</strong></div>
-                        <div><small style="color:var(--text-muted)">Watchers</small><br><strong>${e.watchers || 0}</strong></div>
+                        <div><small style="color:#aaa;">Demonstrators</small><br><strong>${e.demonstrators || 0}</strong></div>
+                        <div><small style="color:#aaa;">Criminals</small><br><strong>${e.criminals || 0}</strong></div>
+                        <div><small style="color:#aaa;">Watchers</small><br><strong>${e.watchers || 0}</strong></div>
                     </div>
-                    <div><small style="color:var(--text-muted)">Damages</small><br>${e.damages || 'N/A'}</div>
-                    <div><small style="color:var(--text-muted)">Impact</small><br>${e.business_impact || 'N/A'}</div>
+                    <div><small style="color:#aaa;">Damages</small><br>${e.damages || 'N/A'}</div>
+                    <div><small style="color:#aaa;">Impact</small><br>${e.business_impact || 'N/A'}</div>
                     ${e.photos && e.photos.length ? `<div><small>Photos</small><br>${e.photos.join(', ')}</div>` : ''}
                     <button class="btn btn-primary" style="margin-top:8px; padding:6px; width:auto;" onclick="shareWhatsApp('${e.id}')">📱 Share via WhatsApp</button>
                 </div>
             `;
             let updateFeedHTML = `<div class="update-feed" id="feed-${e.id}">`;
             const eventUpdates = window.updates.filter(u => u.event_id === e.id);
-            if (eventUpdates.length === 0) updateFeedHTML += `<em style="color:var(--text-muted);">No contributions yet.</em>`;
+            if (eventUpdates.length === 0) updateFeedHTML += `<em style="color:#aaa;">No contributions yet.</em>`;
             else {
                 eventUpdates.slice(0, 5).forEach(u => {
-                    updateFeedHTML += `<div class="update-item"><b>${u.member_name}</b> <span style="color:var(--text-muted);font-size:11px;">${new Date(u.timestamp).toLocaleTimeString()}</span><br>${u.message}</div>`;
+                    updateFeedHTML += `<div class="update-item"><b>${u.member_name}</b> <span style="color:#aaa;font-size:11px;">${new Date(u.timestamp).toLocaleTimeString()}</span><br>${u.message}</div>`;
                 });
             }
             updateFeedHTML += `</div>
                 <div style="margin-top:6px; display:flex; gap:4px;">
-                    <input type="text" id="msg-${e.id}" placeholder="Add live update..." style="flex:1; padding:4px; font-size:12px; background:#0b0c0f; border:1px solid var(--border-color); color:white;">
+                    <input type="text" id="msg-${e.id}" placeholder="Add live update..." style="flex:1; padding:4px; font-size:12px; background:#2a2a2a; border:1px solid var(--border-color); color:white;">
                     <button class="btn btn-primary" style="padding:4px 10px; width:auto; font-size:12px;" onclick="postUpdate('${e.id}', document.getElementById('msg-${e.id}').value)">Post</button>
                 </div>`;
             return `
                 <div class="exec-popup">
-                    <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">${isClosed ? '⚪ RESOLVED' : '🟢 ACTIVE'} - ${e.intensity || 'Medium'} THREAT</div>
+                    <div style="font-size:11px; color:#aaa; margin-bottom:6px;">${isClosed ? '⚪ RESOLVED' : '🟢 ACTIVE'} - ${e.intensity || 'Medium'} THREAT</div>
                     <h3>${e.name}</h3>
                     <div style="font-size:12px;"><b>Start:</b> ${start.toLocaleTimeString()}<br>${closedInfo}</div>
                     <div class="popup-progress" style="background:var(--border-color); height:6px; border-radius:3px; margin:6px 0;"><div style="width:${progress}%; height:6px; border-radius:3px; background:${color};"></div></div>
-                    ${stopBtn} ${editBtn}
+                    ${stopBtn}
                     ${dataHTML}
                     <hr style="border-color:var(--border-color); margin:10px 0;">
                     <b>📡 Live Feed</b>
@@ -601,17 +641,18 @@
         function renderList() {
             const div = document.getElementById('events-list-content');
             if (document.getElementById('intel-entry-form').classList.contains('active')) return;
-            if (window.events.length === 0) { div.innerHTML = '<em style="color:var(--text-muted);">No incidents reported yet.</em>'; return; }
+            if (window.events.length === 0) { div.innerHTML = '<em style="color:#aaa;">Awaiting telemetry data...</em>'; return; }
             let html = '';
             window.events.forEach(e => {
                 const isClosed = e.closed_at !== null;
                 const isActive = !isClosed && new Date() < new Date(e.estimated_end);
-                const borderColor = isClosed ? '#95a5a6' : (isActive ? '#e74c3c' : '#f39c12');
+                const borderColor = isClosed ? '#555' : (isActive ? (e.intensity === 'High' ? '#e74c3c' : e.intensity === 'Medium' ? '#f39c12' : '#27ae60') : '#f39c12');
                 const updateCount = window.updates.filter(u => u.event_id === e.id).length;
                 html += `
-                    <div class="event-item" style="border-left-color:${borderColor};${isClosed?'opacity:0.6;':''}" onclick="focusEvent('${e.id}')">
-                        <div><strong>${e.name}</strong><small>${e.type} [${e.intensity||'Medium'}] | ${new Date(e.start).toLocaleTimeString()} | ${isClosed?'✅ Resolved':(isActive?'🟢 Active':'⏳ Expired')} | 💬 ${updateCount}</small></div>
-                        <div>${!isClosed && isActive ? `<button class="btn btn-danger" style="padding:4px 10px; width:auto; font-size:12px;" onclick="event.stopPropagation(); stopEvent('${e.id}')">🛑 Stop</button>` : ''}</div>
+                    <div class="event-card" style="border-left-color:${borderColor};${isClosed?'opacity:0.6;':''}" onclick="focusEvent('${e.id}')">
+                        <h4>${e.name}</h4>
+                        <div class="event-meta">Type: ${e.type} | Status: ${isClosed?'⚪ Resolved':(isActive?'🟢 Active':'⏳ Expired')} | Intensity: ${e.intensity} | 💬 ${updateCount}</div>
+                        ${!isClosed && isActive ? `<button onclick="event.stopPropagation(); stopEvent('${e.id}')" style="font-size:12px; padding:4px 8px;">Mark Resolved</button>` : ''}
                     </div>
                 `;
             });
@@ -621,7 +662,6 @@
         function focusEvent(id) {
             const e = window.events.find(ev => ev.id === id);
             if (!e) return;
-            // Find the marker layer and open popup
             window.eventMarkers.forEach(layer => {
                 if (layer.getPopup && layer.getPopup().getContent().includes(id)) {
                     layer.openPopup();
@@ -631,7 +671,7 @@
 
         function renderFeed() {
             const div = document.getElementById('feed-content');
-            if (window.updates.length === 0) { div.innerHTML = '<em style="color:var(--text-muted);">No live updates yet.</em>'; return; }
+            if (window.updates.length === 0) { div.innerHTML = '<em style="color:#aaa;">No live updates yet.</em>'; return; }
             let html = '';
             window.updates.slice(0, 20).forEach(u => {
                 const time = new Date(u.timestamp).toLocaleTimeString();
@@ -649,20 +689,104 @@
             if (tab === 'feed') renderFeed();
         }
 
-        // ========== EVENT TYPE TOGGLE ==========
-        document.getElementById('eventType')?.addEventListener('change', function() {
-            const congestion = document.getElementById('congestionLevel');
-            if (congestion) congestion.style.display = this.value === 'Traffic Incident' ? 'inline-block' : 'none';
+        // ========== EXPORT ==========
+        function generateCSVReport() {
+            if (window.events.length === 0) return alert("No operational data to export.");
+            const headers = "ID,Location Name,Latitude,Longitude,Event Type,Start Time,Estimated End,Closed At\n";
+            const rows = window.events.map(e => 
+                `"${e.id}","${e.name}",${e.lat},${e.lng},"${e.type}","${e.start}","${e.estimated_end}","${e.closed_at || ''}"`
+            ).join("\n");
+            const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `IAU_Ops_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportGeoJSON() {
+            if (window.events.length === 0) return alert("No incidents to export.");
+            const features = window.events.map(e => {
+                // If geometry exists, use it; otherwise create a point feature
+                if (e.geometry) {
+                    try {
+                        const geo = JSON.parse(e.geometry);
+                        return {
+                            type: "Feature",
+                            geometry: geo,
+                            properties: { name: e.name, type: e.type, intensity: e.intensity, status: e.closed_at ? "Resolved" : "Active" }
+                        };
+                    } catch(err) { /* fall through */ }
+                }
+                // Fallback point
+                return {
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [e.lng, e.lat] },
+                    properties: { name: e.name, type: e.type, intensity: e.intensity, status: e.closed_at ? "Resolved" : "Active" }
+                };
+            });
+            const geojson = { type: "FeatureCollection", features: features };
+            const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `IAU_Map_Data_${new Date().toISOString().slice(0,10)}.geojson`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // ========== EVENT ACTIONS ==========
+        async function stopEvent(id) {
+            if (!confirm("Are you sure you want to STOP this operation?")) return;
+            await updateEvent(id, { closed_at: new Date().toISOString() });
+            window.map.closePopup();
+        }
+
+        async function clearAllClosed() {
+            const toDelete = window.events.filter(e => e.closed_at);
+            for (let e of toDelete) {
+                await deleteEvent(e.id);
+            }
+        }
+
+        async function postUpdate(eventId, message) {
+            const memberName = document.getElementById('memberName').value.trim() || "Commander";
+            if (!message.trim()) return;
+            await addUpdate(eventId, memberName, message);
+        }
+
+        async function postFeedUpdate() {
+            const msg = document.getElementById('feed-message').value.trim();
+            if (!msg) return alert("Please enter a message.");
+            const memberName = document.getElementById('memberName').value.trim() || "Commander";
+            await addUpdate('global', memberName, msg);
+            document.getElementById('feed-message').value = '';
+        }
+
+        // ========== INIT ==========
+        function initApp() {
+            // Ensure DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initMap);
+            } else {
+                initMap();
+            }
+        }
+
+        // Handle Enter key for login
+        document.getElementById('login-password').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') checkLogin();
         });
 
-        // ========== POLLING ==========
-        setInterval(loadData, 5000);
-        loadData();
-
-        // ========== PWA ==========
+        // PWA
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
-        console.log("✅ Self‑hosted IAU Command Centre loaded.");
+        console.log("✅ IAU Command Center loaded.");
     </script>
 </body>
 </html>
