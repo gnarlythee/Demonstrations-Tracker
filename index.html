@@ -2,84 +2,323 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🚔 IAU - Tactical Command Center</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%231976d2'/%3E%3Ctext x='50' y='75' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'%3E🚔%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <style>
+        /* ---------- EXECUTIVE DARK THEME (Police Colors) ---------- */
         :root {
-            --bg-color: #121212;
-            --panel-bg: #1e1e1e;
+            --bg-color: #0a0e27;       /* Charcoal Navy */
+            --panel-bg: #19023d;       /* IAU Navy */
             --text-main: #e0e0e0;
-            --accent-blue: #1976d2;
-            --accent-red: #e74c3c;
-            --accent-orange: #f39c12;
+            --accent-blue: #1976d2;    /* Maintained standard blue for readable primary buttons */
+            --accent-red: #7d1111;     /* Deep Maroon */
+            --accent-orange: #fcd614;  /* IAU Yellow */
             --accent-green: #27ae60;
-            --border-color: #333;
+            --border-color: #2b3052;   /* Navy-tinted border to blend seamlessly */
             --greyed: #555;
         }
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 15px; background: var(--bg-color); color: var(--text-main); }
-        h2 { margin-top: 0; border-bottom: 2px solid var(--accent-blue); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        
-        .dashboard { display: flex; gap: 15px; margin-bottom: 15px; }
-        .stat-card { flex: 1; background: var(--panel-bg); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--border-color); }
-        .stat-card h3 { margin: 0; font-size: 24px; color: var(--accent-blue); }
-        .stat-card span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0; padding: 15px;
+            background: var(--bg-color);
+            color: var(--text-main);
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--accent-blue);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .dashboard {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            flex: 1;
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            min-width: 120px;
+        }
+        .stat-card h3 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--accent-blue);
+        }
+        .stat-card span {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #aaa;
+        }
 
-        #map { height: 50vh; width: 100%; border-radius: 8px; border: 1px solid var(--border-color); z-index: 1; }
-        
-        .controls, .panel { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; background: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
-        
-        select, input, button { padding: 8px 14px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: #2a2a2a; color: var(--text-main); }
-        button { background: var(--accent-blue); color: #fff; border: none; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        #map {
+            height: 50vh;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            z-index: 1;
+        }
+        .controls, .panel {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            align-items: center;
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        select, input, button {
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            background: #2a2a2a;
+            color: var(--text-main);
+        }
+        button {
+            background: var(--accent-blue);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
         button:hover { filter: brightness(1.2); }
-        
         .btn-report { background: var(--accent-green); }
         .btn-danger { background: var(--accent-red); }
 
-        .main-container { display: flex; gap: 15px; margin-top: 15px; }
+        .main-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
         #map { flex: 1; height: 60vh; }
-        .side-panel { width: 400px; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; max-height: 60vh; overflow-y: auto; }
-        .panel-header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; gap: 10px; }
-        .panel-header button { background: transparent; border: none; color: #aaa; padding: 4px 12px; font-weight: 600; cursor: pointer; }
-        .panel-header button.active { background: var(--accent-blue); color: #fff; border-radius: 4px; }
-        .panel-content { flex: 1; padding: 12px; overflow-y: auto; }
-        .helper-text { text-align: center; color: #aaa; padding: 20px; }
+        .side-panel {
+            width: 400px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .panel-header {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .panel-header button {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            padding: 4px 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .panel-header button.active {
+            background: var(--accent-blue);
+            color: #fff;
+            border-radius: 4px;
+        }
+        .panel-content {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+        }
+        .helper-text {
+            text-align: center;
+            color: #aaa;
+            padding: 20px;
+        }
 
-        .intel-form { display: none; flex-direction: column; gap: 12px; }
+        .intel-form {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+        }
         .intel-form.active { display: flex; }
         .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-row { display: flex; gap: 10px; }
         .form-row > div { flex: 1; }
-        label { font-size: 11px; text-transform: uppercase; color: #aaa; font-weight: 600; }
-        input, select, textarea { width: 100%; padding: 8px 10px; background: #2a2a2a; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 13px; }
+        label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #aaa;
+            font-weight: 600;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            background: #2a2a2a;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: #fff;
+            font-size: 13px;
+        }
         input[type="file"] { padding: 5px; }
-        .btn { padding: 10px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%; }
+        .btn {
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+        }
         .btn-primary { background: var(--accent-blue); color: #fff; }
         .btn-danger { background: var(--accent-red); color: #fff; }
         .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
 
         .events-list { display: flex; flex-direction: column; gap: 8px; }
-        .event-card { background: #2a2a2a; padding: 12px; border-radius: 6px; border-left: 4px solid var(--accent-red); border: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; }
+        .event-card {
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent-red);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: 0.2s;
+        }
         .event-card:hover { background: #333; }
-        .event-card.closed { border-left-color: var(--greyed); opacity: 0.7; }
+        .event-card.closed {
+            border-left-color: var(--greyed);
+            opacity: 0.7;
+        }
         .event-card h4 { margin: 0 0 5px 0; }
         .event-meta { font-size: 12px; color: #aaa; margin-bottom: 8px; }
 
-        .feed-item { background: #2a2a2a; padding: 8px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid var(--accent-blue); }
+        .feed-item {
+            background: #2a2a2a;
+            padding: 8px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-blue);
+        }
         .feed-item b { color: var(--accent-blue); }
         .feed-item small { color: #aaa; font-size: 10px; }
 
-        .leaflet-popup-content-wrapper { background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; }
+        .leaflet-popup-content-wrapper {
+            background: var(--panel-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
         .leaflet-popup-tip { background: var(--panel-bg); }
         .exec-popup { min-width: 280px; max-width: 380px; }
-        .exec-popup h3 { margin: 0 0 8px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
-        .update-feed { max-height: 120px; overflow-y: auto; border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 8px; }
-        .update-item { border-bottom: 1px solid #333; padding: 4px 0; }
+        .exec-popup h3 {
+            margin: 0 0 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+        }
+        .update-feed {
+            max-height: 120px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border-color);
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+        .update-item {
+            border-bottom: 1px solid #333;
+            padding: 4px 0;
+        }
         .update-item b { color: var(--accent-blue); }
 
+        /* ---------- LOGIN OVERLAY ---------- */
+        #login-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        #login-box {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        #login-box h2 { color: var(--accent-blue); margin-top: 0; }
+        #login-box input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: #2a2a2a;
+            color: #fff;
+        }
+        #login-box button {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent-blue);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #login-error {
+            color: var(--accent-red);
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+        #login-loading {
+            color: var(--accent-green);
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* ---------- ADMIN PANEL ---------- */
+        #admin-panel {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 9998;
+            justify-content: center;
+            align-items: center;
+        }
+        #admin-panel.active { display: flex; }
+        .admin-box {
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .admin-box h3 { color: var(--accent-orange); margin-top: 0; }
+        .admin-box p { color: #aaa; }
+
+        /* ---------- RESPONSIVE ---------- */
         @media (max-width: 850px) {
             .main-container { flex-direction: column; }
             .side-panel { width: 100%; max-height: 40vh; }
@@ -89,42 +328,36 @@
         ::-webkit-scrollbar-track { background: var(--bg-color); }
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
-        /* Login Overlay */
-        #login-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--bg-color); display: flex; justify-content: center; align-items: center;
-            z-index: 9999;
-        }
-        #login-box {
-            background: var(--panel-bg); padding: 30px; border-radius: 8px;
-            border: 1px solid var(--border-color); text-align: center;
-        }
-        #login-box h2 { color: var(--accent-blue); margin-top: 0; }
-        #login-box input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 4px; background: #2a2a2a; color: #fff; }
-        #login-box button { width: 100%; padding: 10px; background: var(--accent-blue); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-        #login-error { color: var(--accent-red); font-size: 13px; margin-top: 10px; display: none; }
+        /* ---------- UTILITY ---------- */
+        .hidden { display: none !important; }
+        .mb-12 { margin-bottom: 12px; }
+        .flex { display: flex; }
+        .gap-6 { gap: 6px; }
     </style>
 </head>
 <body>
 
-    <!-- Login Overlay -->
+    <!-- ---------- LOGIN OVERLAY ---------- -->
     <div id="login-overlay">
         <div id="login-box">
             <h2>🔐 IAU Command Center</h2>
-            <p style="color:#aaa; margin-bottom:20px;">Enter access password</p>
-            <input type="password" id="login-password" placeholder="Password">
-            <button onclick="checkLogin()">Unlock</button>
-            <div id="login-error">Incorrect password.</div>
+            <p style="color:#aaa; margin-bottom:20px;">Enter your service credentials</p>
+            <input type="text" id="login-service" placeholder="Service Number (6 digits)">
+            <input type="text" id="login-name" placeholder="Full Name">
+            <button onclick="attemptLogin()">Authenticate</button>
+            <div id="login-loading">Verifying credentials...</div>
+            <div id="login-error">Invalid service number or name.</div>
         </div>
     </div>
 
-    <!-- Main App (hidden until login) -->
-    <div id="app" style="display:none;">
+    <!-- ---------- MAIN APP (hidden until login) ---------- -->
+    <div id="app" class="hidden">
         <h2>
             <span>🚔 IAU - Tactical Command</span>
             <div>
-                <button class="btn-report" onclick="generateCSVReport()" style="margin-right:5px;">📊 Export CSV</button>
+                <button class="btn-report" onclick="generateCSVReport()">📊 Export CSV</button>
                 <button class="btn-report" onclick="exportGeoJSON()">🗺️ Download Map Data</button>
+                <button id="adminPanelBtn" class="btn" style="background:var(--accent-orange); display:none; margin-left:5px;" onclick="toggleAdminPanel()">👤 Admin Panel</button>
             </div>
         </h2>
 
@@ -141,10 +374,14 @@
                 <h3 id="stat-closed">0</h3>
                 <span>Resolved</span>
             </div>
+            <div class="stat-card">
+                <h3 id="stat-members">0</h3>
+                <span>Registered Members</span>
+            </div>
         </div>
 
         <div class="controls">
-            <label>Operator: <input type="text" id="memberName" placeholder="e.g. CMD-01"></label>
+            <label>Operator: <span id="display-name" style="color:var(--accent-green);"></span></label>
             <button onclick="toggleMapMode()">🗺️ Map Mode</button>
             <button onclick="toggleHeatmap()">🔥 Threat Heatmap</button>
             <button class="btn-danger" onclick="clearAllClosed()">🗑️ Purge Resolved</button>
@@ -158,12 +395,16 @@
                     <button id="tab-feed" onclick="switchTab('feed')">💬 Live Feed</button>
                 </div>
                 <div class="panel-content">
-                    <!-- Intel Form (appears when drawing) -->
+                    <!-- Intel Form -->
                     <div class="intel-form" id="intel-entry-form">
                         <h3 style="margin:0; color:var(--accent-blue);">New Incident Report</h3>
-                        <div class="form-group"><label>Location / Zone Name *</label><input type="text" id="ev-name" required placeholder="e.g., Parliament Road Axis"></div>
+                        <div class="form-group">
+                            <label>Location / Zone Name *</label>
+                            <input type="text" id="ev-name" required placeholder="e.g., Parliament Road Axis">
+                        </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Threat Intensity *</label>
+                            <div class="form-group">
+                                <label>Threat Intensity *</label>
                                 <select id="ev-intensity" required>
                                     <option value="">Select intensity</option>
                                     <option value="High">🔴 High (Violent)</option>
@@ -173,22 +414,42 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Est. Demonstrators *</label><input type="number" id="ev-demos" required placeholder="0"></div>
-                            <div class="form-group"><label>Est. Criminals *</label><input type="number" id="ev-crims" required placeholder="0"></div>
-                            <div class="form-group"><label>Watchers *</label><input type="number" id="ev-watch" required placeholder="0"></div>
+                            <div class="form-group">
+                                <label>Est. Demonstrators *</label>
+                                <input type="number" id="ev-demos" required placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Est. Criminals *</label>
+                                <input type="number" id="ev-crims" required placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Watchers *</label>
+                                <input type="number" id="ev-watch" required placeholder="0">
+                            </div>
                         </div>
-                        <div class="form-group"><label>Damages Done *</label><textarea id="ev-damages" required rows="2" placeholder="Describe property destruction..."></textarea></div>
-                        <div class="form-group"><label>Business / Traffic Impact *</label><textarea id="ev-impact" required rows="2" placeholder="Shops closed, roads blocked..."></textarea></div>
-                        <div class="form-group"><label>Upload Media (Photos/Videos)</label><input type="file" id="ev-media" accept="image/*,video/*" multiple></div>
+                        <div class="form-group">
+                            <label>Damages Done *</label>
+                            <textarea id="ev-damages" required rows="2" placeholder="Describe property destruction..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Business / Traffic Impact *</label>
+                            <textarea id="ev-impact" required rows="2" placeholder="Shops closed, roads blocked..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Upload Media (Photos/Videos)</label>
+                            <input type="file" id="ev-media" accept="image/*,video/*" multiple>
+                        </div>
                         <button class="btn btn-primary" onclick="submitIntelReport()">✅ START & Transmit</button>
                         <button class="btn btn-outline" onclick="cancelDraft()">Cancel</button>
                     </div>
 
-                    <div id="panel-log" class="events-list" style="display:block;">
+                    <!-- Operations Log -->
+                    <div id="panel-log" class="events-list">
                         <div id="events-list-content"><em style="color:#aaa;">Awaiting telemetry data...</em></div>
                     </div>
-                    <div id="panel-feed" style="display:none;">
-                        <div style="margin-bottom:12px; display:flex; gap:6px;">
+                    <!-- Live Feed -->
+                    <div id="panel-feed" class="hidden">
+                        <div class="flex gap-6 mb-12">
                             <input type="text" id="feed-message" placeholder="Type a live update..." style="flex:1; background:#2a2a2a; border:1px solid var(--border-color); color:#fff; padding:8px; border-radius:4px;">
                             <button class="btn btn-primary" onclick="postFeedUpdate()" style="width:auto; padding:8px 16px;">Post</button>
                         </div>
@@ -199,34 +460,66 @@
         </div>
     </div>
 
-    <!-- SCRIPTS -->
+    <!-- ---------- ADMIN PANEL ---------- -->
+    <div id="admin-panel">
+        <div class="admin-box">
+            <h3>👤 Admin Panel</h3>
+            <p>Upload a CSV or JSON file with member records.<br>
+            Format (CSV): <code>service_number,name,role</code><br>
+            Format (JSON): <code>[{"service_number":"...","name":"...","role":"..."}]</code></p>
+            <div class="flex gap-6 mb-12">
+                <input type="file" id="members-file" accept=".csv,.json" style="flex:1;">
+                <button class="btn btn-primary" onclick="uploadMembersFile()" style="width:auto; padding:8px 16px;">Upload</button>
+            </div>
+            <button class="btn btn-outline" onclick="downloadMemberTemplate()" style="width:auto; padding:8px 16px;">📥 Download Template</button>
+            <button class="btn btn-outline" style="margin-top:10px;" onclick="toggleAdminPanel()">Close</button>
+            <div id="admin-msg" style="margin-top:10px; font-size:13px;"></div>
+        </div>
+    </div>
+
+    <!-- ---------- SCRIPTS ---------- -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/Leaflet/Leaflet.heat@master/dist/leaflet-heat.js"></script>
     <script>
-        // ========== CONFIG ==========
-        // SET YOUR PASSWORD AND GITHUB TOKEN HERE
-        const APP_PASSWORD = "12345"; // Change this!
-        const GITHUB_REPO = "gnarlythee/Demonstrations-Tracker"; // your repo
-        const GITHUB_FILE = "data.json";
-        const GITHUB_TOKEN = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // replace with your token
+        // ===================================================================
+        // CONFIGURATION – EDIT THESE VALUES
+        // ===================================================================
+        const GITHUB_REPO = "gnarlythee/Demonstrations-Tracker";   // your repo
+        const GITHUB_FILE = "data.json";                           // the JSON file
+        const GITHUB_TOKEN = "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"; // REPLACE WITH YOUR TOKEN
 
-        // ========== LOGIN ==========
-        function checkLogin() {
-            const pass = document.getElementById('login-password').value;
-            if (pass === APP_PASSWORD) {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('app').style.display = 'block';
-                initApp();
-            } else {
-                document.getElementById('login-error').style.display = 'block';
-            }
-        }
-
-        // ========== GITHUB DATABASE ==========
-        let localData = { events: [], updates: [] };
+        // ===================================================================
+        // GLOBAL STATE
+        // ===================================================================
+        let currentUser = null;          // { service_number, name, role }
+        let events = [];
+        let updates = [];
+        let members = [];
+        let eventMarkers = [];
+        let map = null;
+        let drawControl = null;
+        let isDrawing = false;
+        let currentDraftGeoJSON = null;
+        let heatLayer = null;
+        let heatmapActive = false;
+        let customMarker = null;
+        let customLatLng = null;
         let fileSha = null;
 
+        function updateHeatmap() {
+            if (!heatmapActive) return;
+            if (heatLayer) map.removeLayer(heatLayer);
+            const now = new Date();
+            const activePoints = events
+                .filter(e => !e.closed_at && now < new Date(e.estimated_end) && e.lat && e.lng)
+                .map(e => [e.lat, e.lng]);
+            if (activePoints.length === 0) return;
+            heatLayer = L.heatLayer(activePoints, { radius: 30, blur: 20, maxZoom: 15, gradient: {0.2:'blue',0.4:'lime',0.6:'yellow',0.8:'orange',1.0:'red'} }).addTo(map);
+        }
+        // ===================================================================
+        // GITHUB API HELPERS
+        // ===================================================================
         async function fetchGitHubFile() {
             const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
             const res = await fetch(url, { headers: { Authorization: `token ${GITHUB_TOKEN}` } });
@@ -255,15 +548,17 @@
         async function loadData() {
             try {
                 const { content, sha } = await fetchGitHubFile();
-                localData = content;
+                events = content.events || [];
+                updates = content.updates || [];
+                members = content.members || [];
                 fileSha = sha;
-                window.events = localData.events;
-                window.updates = localData.updates;
                 updateDashboard();
-                renderMapMarkers();
-                renderList();
-                renderFeed();
-                updateHeatmap();
+                if (map) {
+                    renderMapMarkers();
+                    renderList();
+                    renderFeed();
+                    updateHeatmap();
+                }
             } catch (e) {
                 console.error("Error loading data", e);
             }
@@ -271,91 +566,79 @@
 
         async function saveData() {
             try {
-                const result = await updateGitHubFile(localData, fileSha);
+                const newContent = { events, updates, members };
+                const result = await updateGitHubFile(newContent, fileSha);
                 fileSha = result.content.sha;
             } catch (e) {
                 console.error("Error saving data", e);
+                alert("Failed to save data to GitHub. Check token and network.");
             }
         }
 
-        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
-
-        async function createEvent(data) {
-            const event = { id: generateId(), ...data, created_at: new Date().toISOString() };
-            localData.events.unshift(event);
-            await saveData();
-            loadData();
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
         }
-
-        async function updateEvent(id, updates) {
-            const idx = localData.events.findIndex(e => e.id === id);
-            if (idx === -1) return;
-            localData.events[idx] = { ...localData.events[idx], ...updates };
-            await saveData();
-            loadData();
-        }
-
-        async function addUpdate(eventId, memberName, message) {
-            const update = {
-                id: generateId(),
-                event_id: eventId,
-                member_name: memberName,
-                message: message,
-                timestamp: new Date().toISOString()
-            };
-            localData.updates.unshift(update);
-            await saveData();
-            loadData();
-        }
-
-        async function deleteEvent(id) {
-            localData.events = localData.events.filter(e => e.id !== id);
-            await saveData();
-            loadData();
-        }
-
-        // ========== MAP SETUP (robust) ==========
-        // Wait for DOM to be ready and Leaflet loaded
-        function initMap() {
-            // Check if map container exists
-            const mapContainer = document.getElementById('map');
-            if (!mapContainer) {
-                console.error("Map container not found!");
+        // ===================================================================
+        // LOGIN / AUTHENTICATION
+        // ===================================================================
+        async function attemptLogin() {
+            const service = document.getElementById('login-service').value.trim();
+            const name = document.getElementById('login-name').value.trim();
+            if (!service || !name) {
+                document.getElementById('login-error').style.display = 'block';
+                document.getElementById('login-error').innerText = "Please enter both service number and name.";
                 return;
             }
 
-            // Initialize map
-            const map = L.map('map').setView([-1.286389, 36.817223], 12);
+            document.getElementById('login-error').style.display = 'none';
+            document.getElementById('login-loading').style.display = 'block';
 
-            // Load tile layers
+            try {
+                await loadData();
+                const user = members.find(m => m.service_number === service && m.name === name);
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('login-overlay').style.display = 'none';
+                    document.getElementById('app').classList.remove('hidden');
+                    document.getElementById('display-name').innerText = user.name + " (" + user.role + ")";
+                    if (user.role === 'admin') {
+                        document.getElementById('adminPanelBtn').style.display = 'inline-block';
+                    }
+                    initApp();
+                } else {
+                    document.getElementById('login-error').style.display = 'block';
+                    document.getElementById('login-error').innerText = "Invalid credentials. Contact admin.";
+                }
+            } catch (e) {
+                document.getElementById('login-error').style.display = 'block';
+                document.getElementById('login-error').innerText = "Could not load member list. Check network.";
+            } finally {
+                document.getElementById('login-loading').style.display = 'none';
+            }
+        }
+
+        // ===================================================================
+        // MAP SETUP
+        // ===================================================================
+        function initApp() {
+            map = L.map('map').setView([-1.286389, 36.817223], 12);
+
             const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
             const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
             const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
             const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
-
-            // Default to dark, but fallback to OSM if dark fails
-            let currentLayer = 'dark';
             darkLayer.addTo(map);
 
-            const mapLayers = { dark: darkLayer, street: streetLayer, sat: satLayer, osm: osmLayer };
-            const layerNames = ['dark', 'street', 'sat', 'osm'];
-            let layerIndex = 0;
-
-            // Expose toggle function globally
+            const layers = [darkLayer, streetLayer, satLayer, osmLayer];
+            let currentLayer = 0;
             window.toggleMapMode = function() {
-                const current = layerNames[layerIndex];
-                map.removeLayer(mapLayers[current]);
-                layerIndex = (layerIndex + 1) % layerNames.length;
-                const next = layerNames[layerIndex];
-                mapLayers[next].addTo(map);
-                currentLayer = next;
+                map.removeLayer(layers[currentLayer]);
+                currentLayer = (currentLayer + 1) % layers.length;
+                layers[currentLayer].addTo(map);
             };
 
             // ========== DRAW TOOLS ==========
-            let drawControl = null;
-            let isDrawing = false;
             const drawLayer = L.featureGroup().addTo(map);
-            let currentDraftGeoJSON = null;
 
             window.toggleDraw = function() {
                 const btn = document.querySelector('.draw-btn');
@@ -399,8 +682,6 @@
             };
 
             // ========== HEATMAP ==========
-            let heatLayer = null;
-            let heatmapActive = false;
             window.toggleHeatmap = function() {
                 heatmapActive = !heatmapActive;
                 if (heatmapActive) {
@@ -409,20 +690,8 @@
                     if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
                 }
             };
-            function updateHeatmap() {
-                if (!heatmapActive) return;
-                if (heatLayer) map.removeLayer(heatLayer);
-                const now = new Date();
-                const activePoints = (window.events || [])
-                    .filter(e => !e.closed_at && now < new Date(e.estimated_end) && e.lat && e.lng)
-                    .map(e => [e.lat, e.lng]);
-                if (activePoints.length === 0) return;
-                heatLayer = L.heatLayer(activePoints, { radius: 30, blur: 20, maxZoom: 15, gradient: {0.2:'blue',0.4:'lime',0.6:'yellow',0.8:'orange',1.0:'red'} }).addTo(map);
-            }
 
             // ========== CUSTOM PIN ==========
-            let customMarker = null;
-            let customLatLng = null;
             map.on('click', function(e) {
                 const sel = document.getElementById('locationSelect');
                 if (sel && sel.value !== 'custom') return;
@@ -442,7 +711,7 @@
                 }
             });
 
-            // ========== STATIONS (dropdown) ==========
+            // ========== STATIONS ==========
             const stations = [
                 { name: "Nairobi Central Police", lat: -1.2833, lng: 36.8167 },
                 { name: "Gigiri Police Station", lat: -1.2333, lng: 36.8000 },
@@ -463,17 +732,15 @@
             customOpt.innerText = '📍 Custom Pin (Tap map)';
             document.getElementById('locationSelect')?.prepend(customOpt);
 
-            // Add Draw button to the controls
+            // Add Draw button to controls
             const controlsDiv = document.querySelector('.controls');
-            if (controlsDiv) {
-                const drawBtn = document.createElement('button');
-                drawBtn.className = 'draw-btn';
-                drawBtn.innerText = '✏️ Draw Zone';
-                drawBtn.onclick = window.toggleDraw;
-                controlsDiv.appendChild(drawBtn);
-            }
+            const drawBtn = document.createElement('button');
+            drawBtn.className = 'draw-btn';
+            drawBtn.innerText = '✏️ Draw Zone';
+            drawBtn.onclick = window.toggleDraw;
+            controlsDiv.appendChild(drawBtn);
 
-            // Add instructions div after controls
+            // Add instructions div
             const instrDiv = document.createElement('div');
             instrDiv.id = 'drawInstructions';
             instrDiv.style.display = 'none';
@@ -484,19 +751,14 @@
             instrDiv.innerText = 'Click on the map to draw a polygon (zone) or polyline (route). Double‑click to finish.';
             controlsDiv.parentNode.insertBefore(instrDiv, controlsDiv.nextSibling);
 
-            // Store map globally for render functions
-            window.map = map;
-            window.eventMarkers = [];
-            window.events = [];
-            window.updates = [];
-
-            // Load data after map is ready
             loadData();
+            setInterval(loadData, 5000);
         }
 
-        // ========== DATA OPERATIONS ==========
+        // ===================================================================
+        // SUBMIT INTEL REPORT
+        // ===================================================================
         window.submitIntelReport = async function() {
-            // Validate required fields
             const name = document.getElementById('ev-name').value.trim();
             const intensity = document.getElementById('ev-intensity').value;
             const demonstrators = document.getElementById('ev-demos').value.trim();
@@ -518,41 +780,58 @@
             const fileNames = Array.from(fileInput.files).map(f => f.name);
 
             const payload = {
-                name, type: "Demonstration", intensity,
+                id: generateId(),
+                name,
+                type: "Demonstration",
+                intensity,
                 demonstrators: parseInt(demonstrators),
                 criminals: parseInt(criminals),
                 watchers: parseInt(watchers),
-                damages, business_impact: impact,
-                start, estimated_end, geometry,
-                photos: fileNames, closed_at: null,
-                lat: null, lng: null
+                damages,
+                business_impact: impact,
+                start,
+                estimated_end,
+                geometry,
+                photos: fileNames,
+                closed_at: null,
+                lat: null,
+                lng: null,
+                creator_service_number: currentUser.service_number,
+                creator_name: currentUser.name
             };
 
             document.getElementById('intel-entry-form').innerHTML = "<h3 style='text-align:center; color:var(--accent-green);'>Transmitting...</h3>";
-            await createEvent(payload);
+            events.unshift(payload);
+            await saveData();
             setTimeout(() => location.reload(), 1500);
         };
 
-        // ========== RENDER ==========
+        // ===================================================================
+        // RENDER FUNCTIONS
+        // ===================================================================
         function updateDashboard() {
-            const active = window.events.filter(e => !e.closed_at);
+            const active = events.filter(e => !e.closed_at);
             document.getElementById('stat-active').innerText = active.length;
             document.getElementById('stat-demos').innerText = active.filter(e => e.type === 'Demonstration').length;
-            document.getElementById('stat-closed').innerText = window.events.filter(e => e.closed_at).length;
+            document.getElementById('stat-closed').innerText = events.filter(e => e.closed_at).length;
+            document.getElementById('stat-members').innerText = members.length;
         }
 
         function renderMapMarkers() {
-            if (!window.map) return;
-            window.eventMarkers.forEach(m => window.map.removeLayer(m));
-            window.eventMarkers = [];
+            if (!map) return;
+            eventMarkers.forEach(m => map.removeLayer(m));
+            eventMarkers = [];
             const now = new Date();
 
-            window.events.forEach(e => {
+            events.forEach(e => {
                 const start = new Date(e.start);
                 const estimated_end = new Date(e.estimated_end);
                 const isClosed = e.closed_at !== null;
                 let progress = 100, isActive = false;
-                if (isClosed) { progress = 100; isActive = false; } else {
+                if (isClosed) {
+                    progress = 100;
+                    isActive = false;
+                } else {
                     const total = estimated_end - start;
                     const elapsed = now - start;
                     progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
@@ -569,17 +848,17 @@
                     try {
                         const geo = JSON.parse(e.geometry);
                         const layer = L.geoJSON(geo, {
-                            style: isClosed ? { color: '#555', fillColor: '#555', fillOpacity: 0.15, weight: 2, dashArray: '5 5' } 
-                                            : { color: color, fillColor: color, fillOpacity: 0.4, weight: 4 }
-                        }).addTo(window.map);
-                        window.eventMarkers.push(layer);
+                            style: isClosed ? { color: '#555', fillColor: '#555', fillOpacity: 0.15, weight: 2, dashArray: '5 5' }
+                                : { color: color, fillColor: color, fillOpacity: 0.4, weight: 4 }
+                        }).addTo(map);
+                        eventMarkers.push(layer);
                         layer.bindPopup(buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color));
                         return;
                     } catch (err) { console.error("Invalid geometry", err); }
                 }
                 if (e.lat && e.lng) {
-                    const marker = L.circleMarker([e.lat, e.lng], { radius: 10, color, fillColor: color, fillOpacity: 0.8 }).addTo(window.map);
-                    window.eventMarkers.push(marker);
+                    const marker = L.circleMarker([e.lat, e.lng], { radius: 10, color, fillColor: color, fillOpacity: 0.8 }).addTo(map);
+                    eventMarkers.push(marker);
                     marker.bindPopup(buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color));
                 }
             });
@@ -587,7 +866,10 @@
 
         function buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color) {
             const closedInfo = isClosed ? `<br><b>🛑 Stopped:</b> ${new Date(e.closed_at).toLocaleTimeString()}` : '';
-            const stopBtn = (!isClosed && isActive) ? `<button class="btn btn-danger" style="margin-top:8px; padding:6px; width:auto;" onclick="stopEvent('${e.id}')">🛑 STOP & RESOLVE</button>` : '';
+            const canEdit = (currentUser.role === 'admin' || e.creator_service_number === currentUser.service_number);
+            const stopBtn = (canEdit && !isClosed && isActive) ? `<button class="btn btn-danger" style="margin-top:8px; padding:6px; width:auto;" onclick="stopEvent('${e.id}')">🛑 STOP & RESOLVE</button>` : '';
+            const editBtn = (canEdit && !isClosed) ? `<button class="btn btn-primary" style="margin-top:8px; padding:6px; width:auto;" onclick="editEvent('${e.id}')">✏️ Edit Intel</button>` : '';
+
             let dataHTML = `
                 <div style="margin-top:8px; border-top:1px solid var(--border-color); padding-top:8px;">
                     <b>Detailed Report</b>
@@ -599,11 +881,13 @@
                     <div><small style="color:#aaa;">Damages</small><br>${e.damages || 'N/A'}</div>
                     <div><small style="color:#aaa;">Impact</small><br>${e.business_impact || 'N/A'}</div>
                     ${e.photos && e.photos.length ? `<div><small>Photos</small><br>${e.photos.join(', ')}</div>` : ''}
+                    <div><small>Creator</small><br>${e.creator_name} (${e.creator_service_number})</div>
                     <button class="btn btn-primary" style="margin-top:8px; padding:6px; width:auto;" onclick="shareWhatsApp('${e.id}')">📱 Share via WhatsApp</button>
                 </div>
             `;
+
             let updateFeedHTML = `<div class="update-feed" id="feed-${e.id}">`;
-            const eventUpdates = window.updates.filter(u => u.event_id === e.id);
+            const eventUpdates = updates.filter(u => u.event_id === e.id);
             if (eventUpdates.length === 0) updateFeedHTML += `<em style="color:#aaa;">No contributions yet.</em>`;
             else {
                 eventUpdates.slice(0, 5).forEach(u => {
@@ -615,13 +899,14 @@
                     <input type="text" id="msg-${e.id}" placeholder="Add live update..." style="flex:1; padding:4px; font-size:12px; background:#2a2a2a; border:1px solid var(--border-color); color:white;">
                     <button class="btn btn-primary" style="padding:4px 10px; width:auto; font-size:12px;" onclick="postUpdate('${e.id}', document.getElementById('msg-${e.id}').value)">Post</button>
                 </div>`;
+
             return `
                 <div class="exec-popup">
                     <div style="font-size:11px; color:#aaa; margin-bottom:6px;">${isClosed ? '⚪ RESOLVED' : '🟢 ACTIVE'} - ${e.intensity || 'Medium'} THREAT</div>
                     <h3>${e.name}</h3>
                     <div style="font-size:12px;"><b>Start:</b> ${start.toLocaleTimeString()}<br>${closedInfo}</div>
                     <div class="popup-progress" style="background:var(--border-color); height:6px; border-radius:3px; margin:6px 0;"><div style="width:${progress}%; height:6px; border-radius:3px; background:${color};"></div></div>
-                    ${stopBtn}
+                    ${stopBtn} ${editBtn}
                     ${dataHTML}
                     <hr style="border-color:var(--border-color); margin:10px 0;">
                     <b>📡 Live Feed</b>
@@ -630,24 +915,82 @@
             `;
         }
 
-        function shareWhatsApp(id) {
-            const e = window.events.find(ev => ev.id === id);
+        window.editEvent = function(id) {
+            const e = events.find(ev => ev.id === id);
             if (!e) return;
-            const url = `https://www.google.com/maps?q=${e.lat||0},${e.lng||0}`;
-            const msg = `*IAU Incident Report*\n\nLocation: ${e.name}\nThreat: ${e.intensity}\nDemonstrators: ${e.demonstrators}\nCriminals: ${e.criminals}\nDamages: ${e.damages}\nImpact: ${e.business_impact}\nCoordinates: ${url}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-        }
+            const newName = prompt("Enter new location name:", e.name);
+            if (newName !== null) e.name = newName;
+            const newIntensity = prompt("Enter new intensity (High/Medium/Low):", e.intensity);
+            if (newIntensity !== null) e.intensity = newIntensity;
+            const newDemos = prompt("Enter new demonstrators count:", e.demonstrators);
+            if (newDemos !== null) e.demonstrators = parseInt(newDemos) || 0;
+            const newCrims = prompt("Enter new criminals count:", e.criminals);
+            if (newCrims !== null) e.criminals = parseInt(newCrims) || 0;
+            const newWatchers = prompt("Enter new watchers count:", e.watchers);
+            if (newWatchers !== null) e.watchers = parseInt(newWatchers) || 0;
+            const newDamages = prompt("Enter new damages description:", e.damages);
+            if (newDamages !== null) e.damages = newDamages;
+            const newImpact = prompt("Enter new impact description:", e.business_impact);
+            if (newImpact !== null) e.business_impact = newImpact;
+            saveData().then(() => {
+                renderMapMarkers();
+                renderList();
+            });
+        };
+
+        window.stopEvent = async function(id) {
+            if (!confirm("Are you sure you want to STOP this operation?")) return;
+            const e = events.find(ev => ev.id === id);
+            if (e) {
+                e.closed_at = new Date().toISOString();
+                await saveData();
+                map.closePopup();
+                renderMapMarkers();
+                renderList();
+            }
+        };
+
+        window.postUpdate = async function(eventId, message) {
+            const memberName = currentUser.name + " (" + currentUser.service_number + ")";
+            if (!message.trim()) return;
+            updates.unshift({
+                id: generateId(),
+                event_id: eventId,
+                member_name: memberName,
+                message: message,
+                timestamp: new Date().toISOString()
+            });
+            await saveData();
+            renderMapMarkers();
+            renderFeed();
+        };
+
+        window.postFeedUpdate = async function() {
+            const msg = document.getElementById('feed-message').value.trim();
+            if (!msg) return alert("Please enter a message.");
+            const memberName = currentUser.name + " (" + currentUser.service_number + ")";
+            updates.unshift({
+                id: generateId(),
+                event_id: 'global',
+                member_name: memberName,
+                message: msg,
+                timestamp: new Date().toISOString()
+            });
+            await saveData();
+            document.getElementById('feed-message').value = '';
+            renderFeed();
+        };
 
         function renderList() {
             const div = document.getElementById('events-list-content');
             if (document.getElementById('intel-entry-form').classList.contains('active')) return;
-            if (window.events.length === 0) { div.innerHTML = '<em style="color:#aaa;">Awaiting telemetry data...</em>'; return; }
+            if (events.length === 0) { div.innerHTML = '<em style="color:#aaa;">Awaiting telemetry data...</em>'; return; }
             let html = '';
-            window.events.forEach(e => {
+            events.forEach(e => {
                 const isClosed = e.closed_at !== null;
                 const isActive = !isClosed && new Date() < new Date(e.estimated_end);
                 const borderColor = isClosed ? '#555' : (isActive ? (e.intensity === 'High' ? '#e74c3c' : e.intensity === 'Medium' ? '#f39c12' : '#27ae60') : '#f39c12');
-                const updateCount = window.updates.filter(u => u.event_id === e.id).length;
+                const updateCount = updates.filter(u => u.event_id === e.id).length;
                 html += `
                     <div class="event-card" style="border-left-color:${borderColor};${isClosed?'opacity:0.6;':''}" onclick="focusEvent('${e.id}')">
                         <h4>${e.name}</h4>
@@ -660,9 +1003,9 @@
         }
 
         function focusEvent(id) {
-            const e = window.events.find(ev => ev.id === id);
+            const e = events.find(ev => ev.id === id);
             if (!e) return;
-            window.eventMarkers.forEach(layer => {
+            eventMarkers.forEach(layer => {
                 if (layer.getPopup && layer.getPopup().getContent().includes(id)) {
                     layer.openPopup();
                 }
@@ -671,9 +1014,9 @@
 
         function renderFeed() {
             const div = document.getElementById('feed-content');
-            if (window.updates.length === 0) { div.innerHTML = '<em style="color:#aaa;">No live updates yet.</em>'; return; }
+            if (updates.length === 0) { div.innerHTML = '<em style="color:#aaa;">No live updates yet.</em>'; return; }
             let html = '';
-            window.updates.slice(0, 20).forEach(u => {
+            updates.slice(0, 20).forEach(u => {
                 const time = new Date(u.timestamp).toLocaleTimeString();
                 html += `<div class="feed-item"><b>${u.member_name}</b> <small>${time}</small><br>${u.message}</div>`;
             });
@@ -689,102 +1032,141 @@
             if (tab === 'feed') renderFeed();
         }
 
-        // ========== EXPORT ==========
+        // ========== EXPORTS ==========
         function generateCSVReport() {
-            if (window.events.length === 0) return alert("No operational data to export.");
-            const headers = "ID,Location Name,Latitude,Longitude,Event Type,Start Time,Estimated End,Closed At\n";
-            const rows = window.events.map(e => 
-                `"${e.id}","${e.name}",${e.lat},${e.lng},"${e.type}","${e.start}","${e.estimated_end}","${e.closed_at || ''}"`
+            if (events.length === 0) return alert("No operational data to export.");
+            const headers = "ID,Location Name,Latitude,Longitude,Event Type,Start Time,Estimated End,Closed At,Creator Service,Creator Name\n";
+            const rows = events.map(e =>
+                `"${e.id}","${e.name}",${e.lat},${e.lng},"${e.type}","${e.start}","${e.estimated_end}","${e.closed_at || ''}","${e.creator_service_number||''}","${e.creator_name||''}"`
             ).join("\n");
             const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `IAU_Ops_Report_${new Date().toISOString().slice(0,10)}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = `IAU_Ops_Report_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
-            document.body.removeChild(link);
         }
 
         function exportGeoJSON() {
-            if (window.events.length === 0) return alert("No incidents to export.");
-            const features = window.events.map(e => {
-                // If geometry exists, use it; otherwise create a point feature
+            if (events.length === 0) return alert("No incidents to export.");
+            const features = events.map(e => {
                 if (e.geometry) {
                     try {
                         const geo = JSON.parse(e.geometry);
-                        return {
-                            type: "Feature",
-                            geometry: geo,
-                            properties: { name: e.name, type: e.type, intensity: e.intensity, status: e.closed_at ? "Resolved" : "Active" }
-                        };
+                        return { type: "Feature", geometry: geo, properties: { name: e.name, type: e.type, intensity: e.intensity, status: e.closed_at ? "Resolved" : "Active", creator: e.creator_name } };
                     } catch(err) { /* fall through */ }
                 }
-                // Fallback point
-                return {
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [e.lng, e.lat] },
-                    properties: { name: e.name, type: e.type, intensity: e.intensity, status: e.closed_at ? "Resolved" : "Active" }
-                };
+                return { type: "Feature", geometry: { type: "Point", coordinates: [e.lng, e.lat] }, properties: { name: e.name, type: e.type, intensity: e.intensity, status: e.closed_at ? "Resolved" : "Active" } };
             });
             const geojson = { type: "FeatureCollection", features: features };
             const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `IAU_Map_Data_${new Date().toISOString().slice(0,10)}.geojson`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = `IAU_Map_Data_${new Date().toISOString().slice(0,10)}.geojson`;
             link.click();
-            document.body.removeChild(link);
         }
 
-        // ========== EVENT ACTIONS ==========
-        async function stopEvent(id) {
-            if (!confirm("Are you sure you want to STOP this operation?")) return;
-            await updateEvent(id, { closed_at: new Date().toISOString() });
-            window.map.closePopup();
+        function shareWhatsApp(id) {
+            const e = events.find(ev => ev.id === id);
+            if (!e) return;
+            const url = `https://www.google.com/maps?q=${e.lat||0},${e.lng||0}`;
+            const msg = `*IAU Incident Report*\n\nLocation: ${e.name}\nThreat: ${e.intensity}\nDemonstrators: ${e.demonstrators}\nCriminals: ${e.criminals}\nDamages: ${e.damages}\nImpact: ${e.business_impact}\nCoordinates: ${url}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
-        async function clearAllClosed() {
-            const toDelete = window.events.filter(e => e.closed_at);
-            for (let e of toDelete) {
-                await deleteEvent(e.id);
+        function clearAllClosed() {
+            if (!confirm("Delete all resolved incidents?")) return;
+            events = events.filter(e => !e.closed_at);
+            saveData().then(() => {
+                renderMapMarkers();
+                renderList();
+                updateDashboard();
+            });
+        }
+
+        // ===================================================================
+        // ADMIN PANEL – UPLOAD MEMBERS & DOWNLOAD TEMPLATE
+        // ===================================================================
+        function toggleAdminPanel() {
+            const panel = document.getElementById('admin-panel');
+            panel.classList.toggle('active');
+        }
+
+        function downloadMemberTemplate() {
+            const csv = `service_number,name,role\n123456,Commander,admin\n654321,Officer K,member\n`;
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'member_template.csv';
+            link.click();
+        }
+
+        async function uploadMembersFile() {
+            const fileInput = document.getElementById('members-file');
+            const file = fileInput.files[0];
+            if (!file) {
+                document.getElementById('admin-msg').innerText = "Please select a file.";
+                return;
             }
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const content = e.target.result;
+                let newMembers = [];
+                if (file.name.endsWith('.json')) {
+                    try {
+                        newMembers = JSON.parse(content);
+                        if (!Array.isArray(newMembers)) throw new Error("JSON must be an array.");
+                    } catch (err) {
+                        document.getElementById('admin-msg').innerText = "Invalid JSON format.";
+                        return;
+                    }
+                } else if (file.name.endsWith('.csv')) {
+                    const lines = content.split('\n').filter(line => line.trim() !== '');
+                    if (lines.length < 2) {
+                        document.getElementById('admin-msg').innerText = "CSV must have at least a header and one row.";
+                        return;
+                    }
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    const serviceIdx = headers.indexOf('service_number');
+                    const nameIdx = headers.indexOf('name');
+                    const roleIdx = headers.indexOf('role');
+                    if (serviceIdx === -1 || nameIdx === -1) {
+                        document.getElementById('admin-msg').innerText = "CSV must have columns 'service_number' and 'name'.";
+                        return;
+                    }
+                    for (let i = 1; i < lines.length; i++) {
+                        const cols = lines[i].split(',').map(c => c.trim());
+                        if (cols.length < Math.max(serviceIdx, nameIdx) + 1) continue;
+                        const role = roleIdx !== -1 ? cols[roleIdx] : 'member';
+                        if (role !== 'admin' && role !== 'member') {
+                            document.getElementById('admin-msg').innerText = "Role must be 'admin' or 'member'.";
+                            return;
+                        }
+                        newMembers.push({
+                            service_number: cols[serviceIdx],
+                            name: cols[nameIdx],
+                            role: role
+                        });
+                    }
+                } else {
+                    document.getElementById('admin-msg').innerText = "Please upload a .csv or .json file.";
+                    return;
+                }
+
+                // Merge with existing members (overwrite duplicates)
+                const merged = [...members];
+                newMembers.forEach(nm => {
+                    const idx = merged.findIndex(m => m.service_number === nm.service_number);
+                    if (idx !== -1) merged[idx] = nm;
+                    else merged.push(nm);
+                });
+                members = merged;
+                await saveData();
+                document.getElementById('admin-msg').innerText = `Updated members. Total: ${members.length}`;
+                updateDashboard();
+                fileInput.value = '';
+            };
+            reader.readAsText(file);
         }
-
-        async function postUpdate(eventId, message) {
-            const memberName = document.getElementById('memberName').value.trim() || "Commander";
-            if (!message.trim()) return;
-            await addUpdate(eventId, memberName, message);
-        }
-
-        async function postFeedUpdate() {
-            const msg = document.getElementById('feed-message').value.trim();
-            if (!msg) return alert("Please enter a message.");
-            const memberName = document.getElementById('memberName').value.trim() || "Commander";
-            await addUpdate('global', memberName, msg);
-            document.getElementById('feed-message').value = '';
-        }
-
-        // ========== INIT ==========
-        function initApp() {
-            // Ensure DOM is ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initMap);
-            } else {
-                initMap();
-            }
-        }
-
-        // Handle Enter key for login
-        document.getElementById('login-password').addEventListener('keyup', function(e) {
-            if (e.key === 'Enter') checkLogin();
-        });
-
-        // PWA
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
         console.log("✅ IAU Command Center loaded.");
     </script>
