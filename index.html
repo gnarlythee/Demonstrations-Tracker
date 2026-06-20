@@ -3,49 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IAU Ground Monitor – Command Centre</title>
+    <title>IAU Ground Monitor – Command Centre (Self‑Hosted)</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <style>
-        /* (Your existing CSS – keep as is) */
-        :root { --bg-dark: #0b0e14; --panel-bg: #151a22; --text-light: #e8edf5; --text-muted: #8892a8; --border-color: #2a3442; --accent-blue: #3b82f6; --danger: #ef4444; --warning: #f59e0b; --safe: #10b981; --greyed: #475569; }
+        /* -- EXECUTIVE DARK THEME (same as before) -- */
+        :root {
+            --bg-dark: #0f1115; --panel-bg: #1a1d24; --text-light: #e2e8f0; --text-muted: #94a3b8;
+            --border-color: #2d3748; --accent-blue: #3b82f6; --danger: #ef4444; --warning: #f59e0b;
+            --safe: #10b981; --greyed: #475569;
+        }
         * { box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: var(--bg-dark); color: var(--text-light); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 25px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); flex-shrink: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.7); z-index: 10; }
-        .header h1 { margin: 0; font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; background: var(--bg-dark); color: var(--text-light); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 25px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
         .header-controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .user-input { display: flex; align-items: center; gap: 8px; }
+        .user-input input { background: #0b0c0f; border: 1px solid var(--border-color); color: white; padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 120px; }
         .nav-badges { display: flex; gap: 8px; }
-        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #0b0e14; border: 1px solid var(--border-color); }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #0b0c0f; border: 1px solid var(--border-color); }
         .badge-high { color: var(--danger); border-color: var(--danger); }
         .badge-med { color: var(--warning); border-color: var(--warning); }
         .badge-closed { color: var(--greyed); border-color: var(--greyed); }
-        .user-input { display: flex; align-items: center; gap: 8px; }
-        .user-input label { font-size: 12px; color: var(--text-muted); }
-        .user-input input { background: #0b0e14; border: 1px solid var(--border-color); color: white; padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 120px; }
+
+        .map-controls { display: flex; gap: 10px; padding: 8px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+        .map-controls select, .map-controls input { background: #0b0c0f; border: 1px solid var(--border-color); color: white; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+        .map-controls button { background: var(--accent-blue); color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 13px; }
+        .map-controls .draw-btn { background: #8e44ad; }
+        .map-controls .toggle-btn { background: #27ae60; }
+        .map-controls .heatmap-btn { background: #d35400; }
+
         .main-container { display: flex; flex: 1; overflow: hidden; }
         #map { flex: 1; height: 100%; z-index: 1; }
         .side-panel { width: 400px; background: var(--panel-bg); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
-        .panel-header { padding: 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 16px; background: #10141c; }
-        .helper-text { padding: 20px; color: var(--text-muted); text-align: center; font-size: 14px; }
-        .intel-form { padding: 15px; display: none; flex-direction: column; gap: 14px; }
+        .panel-header { padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 16px; background: #14161b; display: flex; gap: 10px; }
+        .panel-header button { background: transparent; border: none; color: var(--text-muted); padding: 4px 12px; font-weight: 600; cursor: pointer; border-radius: 4px; }
+        .panel-header button.active { background: var(--accent-blue); color: #fff; }
+        .panel-content { flex: 1; overflow-y: auto; padding: 12px; }
+        .intel-form { padding: 15px; display: none; flex-direction: column; gap: 12px; }
         .intel-form.active { display: flex; }
-        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
         .form-row { display: flex; gap: 10px; }
         .form-row > div { flex: 1; }
         label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
-        input, select, textarea { width: 100%; padding: 8px 10px; background: #0b0e14; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 13px; }
+        input, select, textarea { width: 100%; padding: 8px 10px; background: #0b0c0f; border: 1px solid var(--border-color); border-radius: 4px; color: #fff; font-size: 13px; box-sizing: border-box; }
         input[type="file"] { padding: 5px; }
-        .btn { padding: 10px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%; transition: 0.2s; }
+        .btn { padding: 10px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; width: 100%; }
         .btn-primary { background: var(--accent-blue); color: #fff; }
-        .btn-primary:hover { background: #2563eb; }
         .btn-danger { background: var(--danger); color: #fff; }
         .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-light); }
-        #events-list { padding: 12px; }
-        .event-item { background: #0b0e14; padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid var(--danger); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .helper-text { padding: 20px; color: var(--text-muted); text-align: center; font-size: 14px; }
+
+        .events-list { display: flex; flex-direction: column; gap: 8px; }
+        .event-item { background: #0b0c0f; padding: 12px; border-radius: 6px; border-left: 4px solid var(--danger); border: 1px solid var(--border-color); cursor: pointer; transition: 0.2s; }
+        .event-item:hover { background: #14161b; }
         .event-item.closed { border-left-color: var(--greyed); opacity: 0.7; }
         .event-item strong { display: block; margin-bottom: 4px; }
         .event-item small { color: var(--text-muted); font-size: 11px; }
+
+        .feed-item { background: #0b0c0f; padding: 8px; margin-bottom: 4px; border-radius: 4px; border-left: 3px solid var(--accent-blue); }
+        .feed-item b { color: var(--accent-blue); }
+        .feed-item small { color: var(--text-muted); font-size: 10px; }
+
         .leaflet-popup-content-wrapper { background: var(--panel-bg); color: var(--text-light); border: 1px solid var(--border-color); border-radius: 8px; }
         .leaflet-popup-tip { background: var(--panel-bg); }
         .exec-popup { min-width: 280px; max-width: 380px; }
@@ -53,24 +73,22 @@
         .update-feed { max-height: 120px; overflow-y: auto; border-top: 1px solid var(--border-color); margin-top: 8px; padding-top: 8px; }
         .update-item { border-bottom: 1px solid #1f2937; padding: 4px 0; }
         .update-item b { color: var(--accent-blue); }
-        @media (max-width: 850px) { .header { flex-wrap: wrap; gap: 10px; } .side-panel { width: 100%; max-height: 45vh; border-left: none; border-top: 1px solid var(--border-color); } .main-container { flex-direction: column-reverse; } #map { height: 55vh; } }
+
+        @media (max-width: 850px) {
+            .header { flex-wrap: wrap; gap: 10px; }
+            .side-panel { width: 100%; max-height: 45vh; border-left: none; border-top: 1px solid var(--border-color); }
+            .main-container { flex-direction: column-reverse; }
+            #map { height: 55vh; }
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
-        /* Error overlay */
-        #loading-error { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0b0e14; color: #ef4444; z-index: 9999; justify-content: center; align-items: center; flex-direction: column; text-align: center; padding: 20px; }
-        #loading-error h2 { font-size: 24px; margin-bottom: 10px; }
-        #loading-error p { max-width: 500px; }
     </style>
 </head>
 <body>
-    <div id="loading-error">
-        <h2>⚠️ Map Library Failed to Load</h2>
-        <p>Check your internet connection or the CDN servers. Reload the page after a few seconds.</p>
-    </div>
 
     <div class="header">
-        <h1>🛡️ IAU Ground Monitor – Command Centre</h1>
+        <h1>🛡️ IAU Ground Monitor – Self‑Hosted</h1>
         <div class="header-controls">
             <div class="user-input">
                 <label>Officer:</label>
@@ -84,58 +102,567 @@
         </div>
     </div>
 
+    <div class="map-controls">
+        <select id="locationSelect">
+            <option value="">📍 Select Station / Draw Zone</option>
+            <option value="custom">🟡 Custom Pin (Tap map)</option>
+            <option disabled>--- Known Stations ---</option>
+        </select>
+        <input type="text" id="custom-loc-name" placeholder="Name location" style="display:none; width:150px;">
+        <select id="eventType">
+            <option value="Demonstration">Demonstration</option>
+            <option value="Traffic Incident">Traffic Incident</option>
+        </select>
+        <select id="congestionLevel" style="display:none;">
+            <option value="Low">🟢 Low</option>
+            <option value="Medium">🟠 Medium</option>
+            <option value="High">🔴 High</option>
+        </select>
+        <label style="color:var(--text-muted); font-size:13px;">Hrs: <input type="number" id="duration" value="2" min="0.5" step="0.5" style="width:60px;"></label>
+        <button onclick="reportEvent()">➕ Report Start</button>
+        <button class="draw-btn" onclick="toggleDraw()">✏️ Draw Zone</button>
+        <button class="toggle-btn" id="toggleBtn" onclick="toggleMap()">🛰️ Satellite</button>
+        <button class="heatmap-btn" id="heatmapToggle" onclick="toggleHeatmap()">🔥 Prevalence</button>
+        <button onclick="clearAllClosed()" style="background:var(--danger);">🗑️ Clear Closed</button>
+    </div>
+    <div id="drawInstructions" style="display:none; padding:5px 20px; background:#2a3442; color:var(--text-light); font-size:13px;">Click on the map to draw a polygon (zone) or polyline (route). Double‑click to finish.</div>
+
     <div class="main-container">
         <div id="map"></div>
         <div class="side-panel">
-            <div class="panel-header" id="panel-title">📋 Operations Log</div>
-            <div id="helper-msg" class="helper-text">✏️ Click <b>"Draw Zone/Route"</b> (top left of map) to outline an incident area.</div>
-            <div class="intel-form" id="intel-entry-form">
-                <h3 style="margin: 0; color: var(--accent-blue); font-size: 15px;">New Incident Report</h3>
-                <div class="form-group"><label>Location / Zone Name</label><input type="text" id="ev-name" placeholder="e.g., Parliament Road Axis"></div>
-                <div class="form-row">
-                    <div class="form-group"><label>Threat Intensity</label>
-                        <select id="ev-intensity">
-                            <option value="High">🔴 High (Violent)</option>
-                            <option value="Medium" selected>🟠 Medium (Rowdy)</option>
-                            <option value="Low">🟢 Low (Peaceful)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label>Demonstrators</label><input type="number" id="ev-demos" placeholder="0"></div>
-                    <div class="form-group"><label>Criminals</label><input type="number" id="ev-crims" placeholder="0"></div>
-                    <div class="form-group"><label>Watchers</label><input type="number" id="ev-watch" placeholder="0"></div>
-                </div>
-                <div class="form-group"><label>Damages Done</label><textarea id="ev-damages" rows="2" placeholder="Property destruction..."></textarea></div>
-                <div class="form-group"><label>Business / Traffic Impact</label><textarea id="ev-impact" rows="2" placeholder="Shops closed, roads blocked..."></textarea></div>
-                <div class="form-group"><label>Upload Media (Photos/Videos)</label><input type="file" id="ev-media" accept="image/*,video/*" multiple><small style="color: var(--text-muted); font-size: 10px;">Securely uploaded to Airtable.</small></div>
-                <button class="btn btn-primary" onclick="submitIntelReport()">✅ START & Transmit</button>
-                <button class="btn btn-outline" onclick="cancelDraft()">Cancel</button>
+            <div class="panel-header">
+                <button id="tab-log" class="active" onclick="switchTab('log')">📋 Operations Log</button>
+                <button id="tab-feed" onclick="switchTab('feed')">💬 Live Feed</button>
             </div>
-            <div id="events-list"></div>
+            <div class="panel-content">
+                <div class="intel-form" id="intel-entry-form">
+                    <h3 style="margin:0; color:var(--accent-blue);">New Intelligence Report</h3>
+                    <div class="form-group"><label>Location / Zone Name</label><input type="text" id="ev-name" placeholder="e.g., Parliament Road Axis"></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Threat Intensity</label>
+                            <select id="ev-intensity">
+                                <option value="High">🔴 High (Violent)</option>
+                                <option value="Medium" selected>🟠 Medium (Rowdy)</option>
+                                <option value="Low">🟢 Low (Peaceful)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Demonstrators</label><input type="number" id="ev-demos" placeholder="0"></div>
+                        <div class="form-group"><label>Criminals</label><input type="number" id="ev-crims" placeholder="0"></div>
+                        <div class="form-group"><label>Watchers</label><input type="number" id="ev-watch" placeholder="0"></div>
+                    </div>
+                    <div class="form-group"><label>Damages Done</label><textarea id="ev-damages" rows="2" placeholder="Property destruction..."></textarea></div>
+                    <div class="form-group"><label>Business / Traffic Impact</label><textarea id="ev-impact" rows="2" placeholder="Shops closed, roads blocked..."></textarea></div>
+                    <div class="form-group"><label>Upload Ground Media</label><input type="file" id="ev-media" accept="image/*,video/*" multiple><small style="color:var(--text-muted); font-size:10px;">Stored in browser (not synced to GitHub).</small></div>
+                    <button class="btn btn-primary" onclick="submitIntelReport()">✅ START & Transmit</button>
+                    <button class="btn btn-outline" onclick="cancelDraft()">Cancel</button>
+                </div>
+
+                <div id="panel-log" class="events-list" style="display:block;">
+                    <div id="events-list-content"><em style="color:var(--text-muted);">No incidents reported yet.</em></div>
+                </div>
+                <div id="panel-feed" style="display:none;">
+                    <div style="margin-bottom:12px; display:flex; gap:6px;">
+                        <input type="text" id="feed-message" placeholder="Type a live update..." style="flex:1; background:#0b0c0f; border:1px solid var(--border-color); color:#fff; padding:8px; border-radius:4px;">
+                        <button class="btn btn-primary" onclick="postFeedUpdate()" style="width:auto; padding:8px 16px;">Post</button>
+                    </div>
+                    <div id="feed-content"><em style="color:var(--text-muted);">No live updates yet.</em></div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- LOAD LEAFLET FIRST (with defer to ensure DOM is ready) -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer onload="leafletLoaded()"></script>
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js" defer></script>
-
-    <!-- THEN LOAD YOUR MODULAR FILES -->
-    <script src="config.js" defer></script>
-    <script src="airtable.js" defer></script>
-    <script src="map.js" defer></script>
-    <script src="ui.js" defer></script>
-    <script src="app.js" defer></script>
-
+    <!-- SCRIPTS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     <script>
-        // Fallback: if Leaflet doesn't load within 5 seconds, show error
-        let leafletReady = false;
-        function leafletLoaded() { leafletReady = true; }
-        setTimeout(() => {
-            if (!leafletReady) {
-                document.getElementById('loading-error').style.display = 'flex';
+        // ========== GITHUB CONFIG ==========
+        const GITHUB_REPO = "gnarlythee/Demonstrations-Tracker"; // your repo
+        const GITHUB_FILE = "data.json"; // the JSON file in the repo
+        const GITHUB_TOKEN = "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"; // REPLACE WITH YOUR TOKEN
+
+        // ========== GITHUB API HELPER ==========
+        async function fetchGitHubFile() {
+            const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+            const res = await fetch(url, { headers: { Authorization: `token ${GITHUB_TOKEN}` } });
+            if (!res.ok) throw new Error("Failed to fetch file");
+            const data = await res.json();
+            const content = atob(data.content);
+            return { content: JSON.parse(content), sha: data.sha };
+        }
+
+        async function updateGitHubFile(newContent, sha) {
+            const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+            const body = {
+                message: "Update data via app",
+                content: btoa(JSON.stringify(newContent, null, 2)),
+                sha: sha
+            };
+            const res = await fetch(url, {
+                method: 'PUT',
+                headers: { Authorization: `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error("Failed to update file");
+            return await res.json();
+        }
+
+        // ========== LOCAL DATA CACHE ==========
+        let localData = { events: [], updates: [] };
+        let fileSha = null;
+
+        async function loadData() {
+            try {
+                const { content, sha } = await fetchGitHubFile();
+                localData = content;
+                fileSha = sha;
+                window.events = localData.events;
+                window.updates = localData.updates;
+                updateBadges();
+                renderMapMarkers();
+                renderList();
+                renderFeed();
+                updateHeatmap();
+            } catch (e) {
+                console.error("Error loading data", e);
             }
-        }, 5000);
+        }
+
+        async function saveData() {
+            try {
+                const result = await updateGitHubFile(localData, fileSha);
+                fileSha = result.content.sha;
+            } catch (e) {
+                console.error("Error saving data", e);
+            }
+        }
+
+        // ========== MAP SETUP ==========
+        const map = L.map('map').setView([-1.286389, 36.817223], 13);
+        const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' });
+        const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' });
+        streetLayer.addTo(map);
+        let currentLayer = 'street';
+        function toggleMap() {
+            const btn = document.getElementById('toggleBtn');
+            if (currentLayer === 'street') {
+                map.removeLayer(streetLayer);
+                satLayer.addTo(map);
+                currentLayer = 'sat';
+                btn.innerText = '🗺️ Street';
+            } else {
+                map.removeLayer(satLayer);
+                streetLayer.addTo(map);
+                currentLayer = 'street';
+                btn.innerText = '🛰️ Satellite';
+            }
+        }
+
+        // ========== DRAW TOOLS ==========
+        let drawControl = null;
+        let isDrawing = false;
+        const drawLayer = L.featureGroup().addTo(map);
+        let currentDraftGeoJSON = null;
+
+        function toggleDraw() {
+            const btn = document.querySelector('.draw-btn');
+            const instructions = document.getElementById('drawInstructions');
+            if (isDrawing) {
+                if (drawControl) map.removeControl(drawControl);
+                drawControl = null;
+                isDrawing = false;
+                btn.innerText = '✏️ Draw Zone';
+                instructions.style.display = 'none';
+                map.getContainer().style.cursor = '';
+            } else {
+                drawControl = new L.Control.Draw({
+                    position: 'topright',
+                    draw: {
+                        polygon: { allowIntersection: false, showArea: true },
+                        polyline: { shapeOptions: { color: '#3b82f6', weight: 3 } },
+                        rectangle: false, circle: false, marker: false, circlemarker: false
+                    },
+                    edit: false
+                });
+                map.addControl(drawControl);
+                isDrawing = true;
+                btn.innerText = '⏹️ Stop Drawing';
+                instructions.style.display = 'block';
+                map.getContainer().style.cursor = 'crosshair';
+            }
+        }
+
+        map.on(L.Draw.Event.CREATED, function(event) {
+            const layer = event.layer;
+            currentDraftGeoJSON = layer.toGeoJSON();
+            drawLayer.addLayer(layer);
+            document.getElementById('helper-msg').classList.add('hidden');
+            document.getElementById('intel-entry-form').classList.add('active');
+            switchTab('log');
+        });
+
+        function cancelDraft() {
+            drawLayer.clearLayers();
+            currentDraftGeoJSON = null;
+            document.getElementById('intel-entry-form').classList.remove('active');
+            renderList();
+        }
+
+        // ========== HEATMAP ==========
+        let heatLayer = null;
+        let heatmapActive = false;
+        function toggleHeatmap() {
+            const btn = document.getElementById('heatmapToggle');
+            heatmapActive = !heatmapActive;
+            if (heatmapActive) {
+                btn.innerText = '🔥 Hide Prevalence';
+                updateHeatmap();
+            } else {
+                if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+                btn.innerText = '🔥 Prevalence';
+            }
+        }
+        function updateHeatmap() {
+            if (!heatmapActive) return;
+            if (heatLayer) map.removeLayer(heatLayer);
+            const now = new Date();
+            const activePoints = (window.events || [])
+                .filter(e => !e.closed_at && now < new Date(e.estimated_end) && e.lat && e.lng)
+                .map(e => [e.lat, e.lng]);
+            if (activePoints.length === 0) return;
+            heatLayer = L.heatLayer(activePoints, { radius: 30, blur: 20, maxZoom: 15, gradient: {0.2:'blue',0.4:'lime',0.6:'yellow',0.8:'orange',1.0:'red'} }).addTo(map);
+        }
+
+        // ========== CUSTOM PIN ==========
+        let customMarker = null, customLatLng = null;
+        map.on('click', function(e) {
+            const sel = document.getElementById('locationSelect');
+            if (sel && sel.value !== 'custom') return;
+            if (customMarker) map.removeLayer(customMarker);
+            customLatLng = e.latlng;
+            customMarker = L.marker([customLatLng.lat, customLatLng.lng], { draggable: true, icon: L.divIcon({ html: '📍', className: 'custom-pin', iconSize: [24,24] }) }).addTo(map);
+            customMarker.on('dragend', function() { customLatLng = customMarker.getLatLng(); });
+            document.getElementById('custom-loc-name').style.display = 'inline-block';
+            customMarker.bindPopup("Commenced here").openPopup();
+        });
+
+        document.getElementById('locationSelect')?.addEventListener('change', function() {
+            const nameInput = document.getElementById('custom-loc-name');
+            if (this.value === 'custom') {
+                nameInput.style.display = 'inline-block';
+                if (!customMarker) map.getContainer().style.cursor = 'crosshair';
+            } else {
+                nameInput.style.display = 'none';
+                map.getContainer().style.cursor = '';
+                if (customMarker) { map.removeLayer(customMarker); customMarker = null; customLatLng = null; }
+            }
+        });
+
+        // Stations (for dropdown)
+        const stations = [
+            { name: "Nairobi Central Police", lat: -1.2833, lng: 36.8167 },
+            { name: "Gigiri Police Station", lat: -1.2333, lng: 36.8000 },
+            { name: "Kasarani Police Station", lat: -1.2167, lng: 36.9167 },
+            { name: "Buruburu Police Station", lat: -1.3000, lng: 36.9167 },
+            { name: "Parklands Police Station", lat: -1.2667, lng: 36.8167 }
+        ];
+        stations.forEach((s, i) => {
+            L.marker([s.lat, s.lng], { icon: L.divIcon({ html: '📌', iconSize: [20,20] }) }).bindPopup(`<b>${s.name}</b>`).addTo(map);
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.innerText = s.name;
+            document.getElementById('locationSelect')?.appendChild(opt);
+        });
+
+        // ========== DATA OPERATIONS ==========
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+
+        async function createEvent(data) {
+            const event = { id: generateId(), ...data, created_at: new Date().toISOString() };
+            localData.events.unshift(event);
+            await saveData();
+            loadData(); // refresh
+        }
+
+        async function updateEvent(id, updates) {
+            const idx = localData.events.findIndex(e => e.id === id);
+            if (idx === -1) return;
+            localData.events[idx] = { ...localData.events[idx], ...updates };
+            await saveData();
+            loadData();
+        }
+
+        async function addUpdate(eventId, memberName, message) {
+            const update = {
+                id: generateId(),
+                event_id: eventId,
+                member_name: memberName,
+                message: message,
+                timestamp: new Date().toISOString()
+            };
+            localData.updates.unshift(update);
+            await saveData();
+            loadData();
+        }
+
+        async function deleteEvent(id) {
+            localData.events = localData.events.filter(e => e.id !== id);
+            await saveData();
+            loadData();
+        }
+
+        // ========== INTEL FORM SUBMIT ==========
+        async function submitIntelReport() {
+            if (!currentDraftGeoJSON) return alert("Please draw a zone on the map first.");
+            const name = document.getElementById('ev-name').value || "Unnamed Axis";
+            const intensity = document.getElementById('ev-intensity').value;
+            const demonstrators = parseInt(document.getElementById('ev-demos').value) || 0;
+            const criminals = parseInt(document.getElementById('ev-crims').value) || 0;
+            const watchers = parseInt(document.getElementById('ev-watch').value) || 0;
+            const damages = document.getElementById('ev-damages').value || "None reported.";
+            const business_impact = document.getElementById('ev-impact').value || "None reported.";
+            const start = new Date().toISOString();
+            const geometry = JSON.stringify(currentDraftGeoJSON.geometry);
+            // File uploads – we store only filenames (actual files stay in browser)
+            const fileInput = document.getElementById('ev-media');
+            const fileNames = Array.from(fileInput.files).map(f => f.name);
+
+            const payload = {
+                name, type: "Demonstration", intensity, demonstrators, criminals, watchers,
+                damages, business_impact, start, geometry, photos: fileNames,
+                closed_at: null, estimated_end: new Date(Date.now() + 2*3600000).toISOString()
+            };
+            await createEvent(payload);
+            setTimeout(() => location.reload(), 1500);
+        }
+
+        // ========== SIMPLE PIN REPORT ==========
+        function getLocationData() {
+            const sel = document.getElementById('locationSelect');
+            if (!sel) return null;
+            if (sel.value === 'custom') {
+                if (!customLatLng) { alert("Tap map to drop a pin first."); return null; }
+                const name = document.getElementById('custom-loc-name').value || "Custom Location";
+                return { name, lat: customLatLng.lat, lng: customLatLng.lng };
+            } else { return stations[parseInt(sel.value)]; }
+        }
+
+        async function reportEvent() {
+            const loc = getLocationData();
+            if (!loc) return;
+            const type = document.getElementById('eventType').value;
+            const hours = parseFloat(document.getElementById('duration').value);
+            const congestion = document.getElementById('congestionLevel').value;
+            const start = new Date().toISOString();
+            const estimated_end = new Date(Date.now() + hours * 3600000).toISOString();
+            await createEvent({
+                name: loc.name, lat: loc.lat, lng: loc.lng,
+                type, congestion: type === 'Traffic Incident' ? congestion : null,
+                intensity: 'Medium',
+                demonstrators: 0, criminals: 0, watchers: 0,
+                damages: '', business_impact: '',
+                start, estimated_end, closed_at: null,
+                geometry: null, photos: []
+            });
+        }
+
+        // ========== RESOLVE / STOP ==========
+        async function stopEvent(id) {
+            if (!confirm("Are you sure you want to STOP this operation?")) return;
+            await updateEvent(id, { closed_at: new Date().toISOString() });
+            map.closePopup();
+        }
+
+        async function clearAllClosed() {
+            const toDelete = window.events.filter(e => e.closed_at);
+            for (let e of toDelete) {
+                await deleteEvent(e.id);
+            }
+        }
+
+        // ========== POST UPDATE ==========
+        async function postUpdate(eventId, message) {
+            const memberName = document.getElementById('memberName').value.trim() || "Commander";
+            await addUpdate(eventId, memberName, message);
+        }
+
+        async function postFeedUpdate() {
+            const msg = document.getElementById('feed-message').value.trim();
+            if (!msg) return alert("Please enter a message.");
+            const memberName = document.getElementById('memberName').value.trim() || "Commander";
+            await addUpdate('global', memberName, msg);
+            document.getElementById('feed-message').value = '';
+        }
+
+        // ========== RENDER ==========
+        function updateBadges() {
+            const active = window.events.filter(e => !e.closed_at);
+            document.getElementById('stat-high').innerText = active.filter(e => e.intensity === 'High').length;
+            document.getElementById('stat-med').innerText = active.filter(e => e.intensity === 'Medium').length;
+            document.getElementById('stat-closed').innerText = window.events.filter(e => e.closed_at).length;
+        }
+
+        function renderMapMarkers() {
+            window.eventMarkers?.forEach(m => map.removeLayer(m));
+            window.eventMarkers = [];
+            const now = new Date();
+            window.events.forEach(e => {
+                const start = new Date(e.start);
+                const estimated_end = new Date(e.estimated_end);
+                const isClosed = e.closed_at !== null;
+                let progress = 100, isActive = false;
+                if (isClosed) { progress = 100; isActive = false; } else {
+                    const total = estimated_end - start;
+                    const elapsed = now - start;
+                    progress = Math.min(100, Math.max(0, (elapsed / total) * 100));
+                    isActive = progress < 100;
+                }
+                let color = '#95a5a6';
+                if (!isClosed && isActive) {
+                    if (e.intensity === 'Low') color = '#f1c40f';
+                    else if (e.intensity === 'Medium') color = '#f39c12';
+                    else if (e.intensity === 'High') color = '#e74c3c';
+                }
+                if (e.geometry) {
+                    try {
+                        const geo = JSON.parse(e.geometry);
+                        const layer = L.geoJSON(geo, {
+                            style: isClosed ? { color: '#95a5a6', fillColor: '#95a5a6', fillOpacity: 0.15, weight: 2, dashArray: '5 5' } 
+                                            : { color: color, fillColor: color, fillOpacity: 0.4, weight: 4 }
+                        }).addTo(map);
+                        window.eventMarkers.push(layer);
+                        layer.bindPopup(buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color));
+                        return;
+                    } catch (err) {}
+                }
+                if (e.lat && e.lng) {
+                    const marker = L.circleMarker([e.lat, e.lng], { radius: 10, color, fillColor: color, fillOpacity: 0.8 }).addTo(map);
+                    window.eventMarkers.push(marker);
+                    marker.bindPopup(buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color));
+                }
+            });
+        }
+
+        function buildPopupContent(e, start, estimated_end, isClosed, progress, isActive, color) {
+            const closedInfo = isClosed ? `<br><b>🛑 Stopped:</b> ${new Date(e.closed_at).toLocaleTimeString()}` : '';
+            const stopBtn = (!isClosed && isActive) ? `<button class="btn btn-danger" style="margin-top:8px; padding:6px; width:auto;" onclick="stopEvent('${e.id}')">🛑 STOP & RESOLVE</button>` : '';
+            const editBtn = (!isClosed) ? `<button class="btn btn-primary" style="margin-top:8px; padding:6px; width:auto;" onclick="editEvent('${e.id}')">✏️ Edit Intel</button>` : '';
+            let dataHTML = `
+                <div style="margin-top:8px; border-top:1px solid var(--border-color); padding-top:8px;">
+                    <b>Detailed Report</b>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:6px 0;">
+                        <div><small style="color:var(--text-muted)">Demonstrators</small><br><strong>${e.demonstrators || 0}</strong></div>
+                        <div><small style="color:var(--text-muted)">Criminals</small><br><strong>${e.criminals || 0}</strong></div>
+                        <div><small style="color:var(--text-muted)">Watchers</small><br><strong>${e.watchers || 0}</strong></div>
+                    </div>
+                    <div><small style="color:var(--text-muted)">Damages</small><br>${e.damages || 'N/A'}</div>
+                    <div><small style="color:var(--text-muted)">Impact</small><br>${e.business_impact || 'N/A'}</div>
+                    ${e.photos && e.photos.length ? `<div><small>Photos</small><br>${e.photos.join(', ')}</div>` : ''}
+                    <button class="btn btn-primary" style="margin-top:8px; padding:6px; width:auto;" onclick="shareWhatsApp('${e.id}')">📱 Share via WhatsApp</button>
+                </div>
+            `;
+            let updateFeedHTML = `<div class="update-feed" id="feed-${e.id}">`;
+            const eventUpdates = window.updates.filter(u => u.event_id === e.id);
+            if (eventUpdates.length === 0) updateFeedHTML += `<em style="color:var(--text-muted);">No contributions yet.</em>`;
+            else {
+                eventUpdates.slice(0, 5).forEach(u => {
+                    updateFeedHTML += `<div class="update-item"><b>${u.member_name}</b> <span style="color:var(--text-muted);font-size:11px;">${new Date(u.timestamp).toLocaleTimeString()}</span><br>${u.message}</div>`;
+                });
+            }
+            updateFeedHTML += `</div>
+                <div style="margin-top:6px; display:flex; gap:4px;">
+                    <input type="text" id="msg-${e.id}" placeholder="Add live update..." style="flex:1; padding:4px; font-size:12px; background:#0b0c0f; border:1px solid var(--border-color); color:white;">
+                    <button class="btn btn-primary" style="padding:4px 10px; width:auto; font-size:12px;" onclick="postUpdate('${e.id}', document.getElementById('msg-${e.id}').value)">Post</button>
+                </div>`;
+            return `
+                <div class="exec-popup">
+                    <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">${isClosed ? '⚪ RESOLVED' : '🟢 ACTIVE'} - ${e.intensity || 'Medium'} THREAT</div>
+                    <h3>${e.name}</h3>
+                    <div style="font-size:12px;"><b>Start:</b> ${start.toLocaleTimeString()}<br>${closedInfo}</div>
+                    <div class="popup-progress" style="background:var(--border-color); height:6px; border-radius:3px; margin:6px 0;"><div style="width:${progress}%; height:6px; border-radius:3px; background:${color};"></div></div>
+                    ${stopBtn} ${editBtn}
+                    ${dataHTML}
+                    <hr style="border-color:var(--border-color); margin:10px 0;">
+                    <b>📡 Live Feed</b>
+                    ${updateFeedHTML}
+                </div>
+            `;
+        }
+
+        function shareWhatsApp(id) {
+            const e = window.events.find(ev => ev.id === id);
+            if (!e) return;
+            const url = `https://www.google.com/maps?q=${e.lat||0},${e.lng||0}`;
+            const msg = `*IAU Incident Report*\n\nLocation: ${e.name}\nThreat: ${e.intensity}\nDemonstrators: ${e.demonstrators}\nCriminals: ${e.criminals}\nDamages: ${e.damages}\nImpact: ${e.business_impact}\nCoordinates: ${url}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function renderList() {
+            const div = document.getElementById('events-list-content');
+            if (document.getElementById('intel-entry-form').classList.contains('active')) return;
+            if (window.events.length === 0) { div.innerHTML = '<em style="color:var(--text-muted);">No incidents reported yet.</em>'; return; }
+            let html = '';
+            window.events.forEach(e => {
+                const isClosed = e.closed_at !== null;
+                const isActive = !isClosed && new Date() < new Date(e.estimated_end);
+                const borderColor = isClosed ? '#95a5a6' : (isActive ? '#e74c3c' : '#f39c12');
+                const updateCount = window.updates.filter(u => u.event_id === e.id).length;
+                html += `
+                    <div class="event-item" style="border-left-color:${borderColor};${isClosed?'opacity:0.6;':''}" onclick="focusEvent('${e.id}')">
+                        <div><strong>${e.name}</strong><small>${e.type} [${e.intensity||'Medium'}] | ${new Date(e.start).toLocaleTimeString()} | ${isClosed?'✅ Resolved':(isActive?'🟢 Active':'⏳ Expired')} | 💬 ${updateCount}</small></div>
+                        <div>${!isClosed && isActive ? `<button class="btn btn-danger" style="padding:4px 10px; width:auto; font-size:12px;" onclick="event.stopPropagation(); stopEvent('${e.id}')">🛑 Stop</button>` : ''}</div>
+                    </div>
+                `;
+            });
+            div.innerHTML = html;
+        }
+
+        function focusEvent(id) {
+            const e = window.events.find(ev => ev.id === id);
+            if (!e) return;
+            // Find the marker layer and open popup
+            window.eventMarkers.forEach(layer => {
+                if (layer.getPopup && layer.getPopup().getContent().includes(id)) {
+                    layer.openPopup();
+                }
+            });
+        }
+
+        function renderFeed() {
+            const div = document.getElementById('feed-content');
+            if (window.updates.length === 0) { div.innerHTML = '<em style="color:var(--text-muted);">No live updates yet.</em>'; return; }
+            let html = '';
+            window.updates.slice(0, 20).forEach(u => {
+                const time = new Date(u.timestamp).toLocaleTimeString();
+                html += `<div class="feed-item"><b>${u.member_name}</b> <small>${time}</small><br>${u.message}</div>`;
+            });
+            div.innerHTML = html;
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.panel-header button').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('panel-log').style.display = tab === 'log' ? 'block' : 'none';
+            document.getElementById('panel-feed').style.display = tab === 'feed' ? 'block' : 'none';
+            if (tab === 'log') renderList();
+            if (tab === 'feed') renderFeed();
+        }
+
+        // ========== EVENT TYPE TOGGLE ==========
+        document.getElementById('eventType')?.addEventListener('change', function() {
+            const congestion = document.getElementById('congestionLevel');
+            if (congestion) congestion.style.display = this.value === 'Traffic Incident' ? 'inline-block' : 'none';
+        });
+
+        // ========== POLLING ==========
+        setInterval(loadData, 5000);
+        loadData();
+
+        // ========== PWA ==========
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+
+        console.log("✅ Self‑hosted IAU Command Centre loaded.");
     </script>
 </body>
 </html>
